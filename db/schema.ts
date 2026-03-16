@@ -119,3 +119,60 @@ export const generationLogs = sqliteTable('generation_logs', {
   articlesGenerated: integer('articles_generated').notNull().default(0),
   errors: text('errors', { mode: 'json' }).$type<string[]>(),
 });
+
+// ─── Bookmarks / Favorites ──────────────────────────────────────────────────
+
+export const bookmarks = sqliteTable(
+  'bookmarks',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    articleId: text('article_id')
+      .notNull()
+      .references(() => articles.id, { onDelete: 'cascade' }),
+    createdAt: integer('created_at', { mode: 'timestamp' })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.articleId] })]
+);
+
+// ─── Email Alert Subscriptions ──────────────────────────────────────────────
+
+export const emailAlerts = sqliteTable('email_alerts', {
+  id: text('id')
+    .primaryKey()
+    .default(sql`(lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))))`),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  email: text('email').notNull(),
+  frequency: text('frequency', {
+    enum: ['daily', 'weekly', 'breaking'],
+  }).notNull().default('daily'),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+  sportIds: text('sport_ids', { mode: 'json' }).$type<string[]>(),
+  lastSentAt: integer('last_sent_at', { mode: 'timestamp' }),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// ─── Shared Articles ────────────────────────────────────────────────────────
+
+export const sharedArticles = sqliteTable('shared_articles', {
+  id: text('id')
+    .primaryKey()
+    .default(sql`(lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))))`),
+  articleId: text('article_id')
+    .notNull()
+    .references(() => articles.id, { onDelete: 'cascade' }),
+  sharedByUserId: text('shared_by_user_id')
+    .references(() => users.id, { onDelete: 'set null' }),
+  shareToken: text('share_token').notNull().unique(),
+  viewCount: integer('view_count').notNull().default(0),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});

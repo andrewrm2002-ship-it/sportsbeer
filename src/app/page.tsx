@@ -35,15 +35,29 @@ export default async function HomePage() {
   return (
     <div className="space-y-12">
       {/* Hero Section */}
-      <section className="relative text-center py-16 sm:py-24">
-        <div className="absolute inset-0 bg-gradient-to-b from-accent/5 via-transparent to-transparent rounded-3xl -z-10" />
-        <span className="text-6xl sm:text-7xl block mb-6">&#x1F37A;</span>
+      <section className="relative text-center py-16 sm:py-24 overflow-hidden">
+        {/* Animated gradient background */}
+        <div className="absolute inset-0 -z-10">
+          <div className="absolute inset-0 bg-gradient-to-b from-accent/8 via-accent-glow to-transparent rounded-3xl" />
+          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--color-accent-glow)_0%,_transparent_70%)]" />
+          <div
+            className="absolute inset-0 opacity-30"
+            style={{
+              background: 'radial-gradient(circle at 20% 50%, var(--color-accent-glow) 0%, transparent 50%), radial-gradient(circle at 80% 50%, rgba(224, 122, 56, 0.05) 0%, transparent 50%)',
+              animation: 'heroGlow 8s ease-in-out infinite alternate',
+            }}
+          />
+        </div>
+
+        <span className="text-6xl sm:text-7xl block mb-6 drop-shadow-lg">&#x1F37A;</span>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-text-primary">
           Brews &amp; Box Scores
         </h1>
+        <p className="mt-2 text-sm sm:text-base font-medium text-accent/80 uppercase tracking-widest">
+          Where Sports News Gets a Cold One
+        </p>
         <p className="mt-4 text-lg sm:text-xl text-text-secondary max-w-2xl mx-auto leading-relaxed">
-          Where sports news gets a cold one. AI-powered coverage with a
-          humorous twist — served fresh daily.
+          AI-powered coverage with a humorous twist — served fresh daily.
         </p>
         <div className="mt-8 flex items-center justify-center gap-4 flex-wrap">
           <Link
@@ -60,6 +74,28 @@ export default async function HomePage() {
               Sign Up for Personalized Feeds
             </Link>
           )}
+        </div>
+
+        {/* Beer foam / wave decorative element */}
+        <div className="absolute bottom-0 left-0 right-0 h-8 overflow-hidden">
+          <svg
+            viewBox="0 0 1200 40"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-full h-full"
+            preserveAspectRatio="none"
+          >
+            <path
+              d="M0 20C100 10 200 30 300 20C400 10 500 30 600 20C700 10 800 30 900 20C1000 10 1100 30 1200 20V40H0V20Z"
+              fill="var(--color-bg-primary)"
+              fillOpacity="0.5"
+            />
+            <path
+              d="M0 25C150 15 250 35 400 25C550 15 650 35 800 25C950 15 1050 35 1200 25V40H0V25Z"
+              fill="var(--color-bg-primary)"
+              fillOpacity="0.3"
+            />
+          </svg>
         </div>
       </section>
 

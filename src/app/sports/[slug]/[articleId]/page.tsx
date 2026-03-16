@@ -5,6 +5,8 @@ import * as schema from '../../../../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { timeAgo } from '@/lib/utils';
 import { ShareButtons } from '@/components/articles/ShareButtons';
+import { BookmarkButton } from '@/components/articles/BookmarkButton';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface Props {
   params: Promise<{ slug: string; articleId: string }>;
@@ -97,26 +99,15 @@ export default async function ArticleDetailPage({ params }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
-      {/* Back Link */}
-      <Link
-        href={`/sports/${slug}`}
-        className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-accent transition-colors"
-      >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15 19l-7-7 7-7"
-          />
-        </svg>
-        {article.sportIcon} {article.sportName}
-      </Link>
+      {/* Breadcrumbs */}
+      <Breadcrumbs
+        items={[
+          { label: 'Home', href: '/' },
+          { label: 'Sports', href: '/sports' },
+          { label: article.sportName, href: `/sports/${slug}` },
+          { label: article.title.length > 40 ? article.title.slice(0, 40) + '...' : article.title },
+        ]}
+      />
 
       {/* Article Header */}
       <header className="space-y-4">
@@ -144,15 +135,16 @@ export default async function ArticleDetailPage({ params }: Props) {
           </p>
         )}
 
-        <div className="flex items-center gap-4 text-sm text-text-muted flex-wrap">
+        <div className="flex items-center gap-3 text-sm text-text-muted flex-wrap">
           <time>{timeAgo(timestamp!)}</time>
-              <span className="text-border">|</span>
-              <span>{readTime} min read</span>
-              <span className="text-border">|</span>
-              <ShareButtons title={article.title} />
+          <span className="text-text-muted/40">&middot;</span>
+          <span>{readTime} min read</span>
+          <span className="text-text-muted/40">&middot;</span>
+          <ShareButtons title={article.title} />
+          <BookmarkButton articleId={article.id} size="lg" showLabel />
           {article.originalSourceName && (
             <>
-              <span className="text-border">|</span>
+              <span className="text-text-muted/40">&middot;</span>
               {article.originalSourceUrl ? (
                 <a
                   href={article.originalSourceUrl}

@@ -4,6 +4,7 @@ import { db } from '../../../../db';
 import * as schema from '../../../../db/schema';
 import { eq } from 'drizzle-orm';
 import { ArticleFeed } from '@/components/articles/ArticleFeed';
+import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -46,26 +47,14 @@ export default async function SportDetailPage({ params }: Props) {
 
   return (
     <div className="space-y-8">
-      {/* Back Link */}
-      <Link
-        href="/sports"
-        className="inline-flex items-center gap-1.5 text-sm text-text-muted hover:text-accent transition-colors"
-      >
-        <svg
-          className="w-4 h-4"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M15 19l-7-7 7-7"
-          />
-        </svg>
-        All Sports
-      </Link>
+      {/* Breadcrumbs */}
+      <Breadcrumbs
+        items={[
+          { label: 'Home', href: '/' },
+          { label: 'Sports', href: '/sports' },
+          { label: sport.name },
+        ]}
+      />
 
       {/* Sport Header */}
       <div className="flex items-center gap-4">

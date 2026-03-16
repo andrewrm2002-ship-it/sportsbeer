@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const sportId = searchParams.get('sportId');
+    const category = searchParams.get('category');
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
@@ -35,6 +36,14 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(schema.articles.sportId, sportId));
     } else if (preferredSportIds && preferredSportIds.length > 0) {
       conditions.push(inArray(schema.articles.sportId, preferredSportIds));
+    }
+
+    if (category) {
+      const validCategories = ['scores', 'news', 'stats', 'highlights'] as const;
+      type ArticleCategory = (typeof validCategories)[number];
+      if (validCategories.includes(category as ArticleCategory)) {
+        conditions.push(eq(schema.articles.category, category as ArticleCategory));
+      }
     }
 
     const results = await db

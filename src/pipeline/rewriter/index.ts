@@ -1,11 +1,13 @@
 /**
  * Main rewriting engine.
- * Takes raw sports data and transforms it into humorous, beer-themed articles.
+ * Takes raw sports data and transforms it into witty, well-written articles
+ * with occasional beer/bar references that feel natural.
  */
 
 import type { RawArticleData } from '../fetchers/types';
 import {
   type TemplateData,
+  type TemplateFn,
   gameRecapTemplates,
   blowoutTemplates,
   closeGameTemplates,
@@ -18,11 +20,19 @@ import {
   generalNewsTemplates,
   standingsTemplates,
   bodyParagraphTemplates,
+  analysisParagraphs,
+  contextParagraphs,
+  playerFocusParagraphs,
   pickTemplate,
   pickTemplates,
 } from './templates';
 import {
   beerTransitions,
+  wittyTransitions,
+  generalHumorTransitions,
+  allTransitions,
+  wittyCommentary,
+  contextualReactions,
   humorInterjections,
   openingLines,
   closingLines,
@@ -197,6 +207,16 @@ function getNewsTemplates(description: string) {
   }
 }
 
+// ─── Contextual Reaction Selection ──────────────────────────────────────────
+
+function getContextualReaction(facts: ExtractedFacts): string {
+  if (facts.isBlowout) return randomPhrase(contextualReactions.dominant);
+  if (facts.isUpset) return randomPhrase(contextualReactions.historic);
+  if (facts.isCloseGame) return randomPhrase(contextualReactions.comeback);
+  // Default to a dominant reaction for general wins
+  return randomPhrase(contextualReactions.dominant);
+}
+
 // ─── Sentence Helpers ────────────────────────────────────────────────────────
 
 function splitIntoSentences(text: string): string[] {
@@ -207,34 +227,46 @@ function splitIntoSentences(text: string): string[] {
     .filter((s) => s.trim().length > 10); // Filter out tiny fragments
 }
 
+/**
+ * Rewrite a sentence with varying levels of humor treatment.
+ * 60% straight delivery, 25% light humor, 15% full humor.
+ */
 function rewriteSentenceWithHumor(sentence: string, _facts: ExtractedFacts): string {
-  // Safely lowercase first char only if it's a regular word (not an acronym or proper noun starting with caps)
   const lowerFirst = (s: string) => {
-    // Don't lowercase if starts with acronym pattern (e.g., "U.S.", "NBA", "NFL") or number
     if (/^[A-Z]{2}|^[A-Z]\./.test(s)) return s;
     return s.charAt(0).toLowerCase() + s.slice(1);
   };
 
-  const patterns: Array<(s: string) => string> = [
-    // Lead with the fact, add commentary after
-    (s) => `${s} ${getQuickCommentary()}`,
-    // Add a humorous lead-in before the fact
-    (s) => `In what can only be described as a "hold my beer" moment, ${lowerFirst(s)}`,
-    // Wrap fact in reaction
-    (s) => `Here's what happened: ${s} Yeah, we had to read that twice too.`,
-    // Casual retelling
-    (s) => `So get this — ${lowerFirst(s)}`,
-    // Sports bar commentary
-    (s) => `The headlines are in, and they're a doozy: ${s}`,
-    // Direct with humor tag
-    (s) => `${s} If you need a moment to process that, we'll wait. We've got beer.`,
-    // Straight delivery for variety (not everything needs a joke)
-    (s) => s,
-    // Storytelling voice
-    (s) => `Picture this: ${lowerFirst(s)} You can't make this stuff up.`,
-  ];
+  const roll = Math.random();
 
-  return patterns[Math.floor(Math.random() * patterns.length)]!(sentence);
+  // 60% — straight delivery (just the fact, no wrapping)
+  if (roll < 0.60) {
+    return sentence;
+  }
+
+  // 25% — light humor (subtle commentary)
+  if (roll < 0.85) {
+    const lightPatterns: Array<(s: string) => string> = [
+      (s) => `${s} ${getQuickCommentary()}`,
+      (s) => `So get this — ${lowerFirst(s)}`,
+      (s) => `${s} You read that correctly.`,
+      (s) => `Here's what happened: ${s}`,
+      (s) => `The headlines are in: ${s}`,
+      (s) => `Worth noting: ${lowerFirst(s)}`,
+      (s) => `And then this happened: ${lowerFirst(s)}`,
+    ];
+    return lightPatterns[Math.floor(Math.random() * lightPatterns.length)]!(sentence);
+  }
+
+  // 15% — full humor treatment (only for genuinely notable facts)
+  const fullPatterns: Array<(s: string) => string> = [
+    (s) => `In what can only be described as a "hold my beer" moment, ${lowerFirst(s)}`,
+    (s) => `Picture this: ${lowerFirst(s)} You can't make this stuff up.`,
+    (s) => `${s} If you need a moment to process that, we'll wait.`,
+    (s) => `We're going to need you to sit down for this one: ${lowerFirst(s)}`,
+    (s) => `${s} Yeah, we had to read that twice too.`,
+  ];
+  return fullPatterns[Math.floor(Math.random() * fullPatterns.length)]!(sentence);
 }
 
 function getQuickCommentary(): string {
@@ -243,14 +275,25 @@ function getQuickCommentary(): string {
     "We'll pause while you process that.",
     'Read that again if you need to.',
     "And no, we're not making this up.",
-    'Cheers to that.',
     "File that under 'things that actually happened.'",
     'Moving on.',
     "But wait, there's more.",
-    'Drink accordingly.',
-    'The bar goes wild.',
+    "That's not a typo.",
+    "Yes, really.",
+    "Take a moment.",
   ];
   return options[Math.floor(Math.random() * options.length)]!;
+}
+
+/**
+ * Pick a transition — only uses beer transitions ~25% of the time.
+ * The rest are witty or general humor.
+ */
+function pickTransition(): string {
+  const roll = Math.random();
+  if (roll < 0.25) return randomPhrase(beerTransitions);
+  if (roll < 0.60) return randomPhrase(wittyTransitions);
+  return randomPhrase(generalHumorTransitions);
 }
 
 // ─── Body Builder ───────────────────────────────────────────────────────────
@@ -260,85 +303,73 @@ function buildScoreBody(facts: ExtractedFacts, templateData: TemplateData): stri
   const mainRecap = pickTemplate(scoreTemplates)(templateData);
   const sentiment = getSentiment(facts);
   const bodyDetails = pickTemplates(bodyParagraphTemplates, 2 + Math.floor(Math.random() * 2));
-  const puns = randomPuns(facts.sport, 2);
-
-  // Structural variants — pick one randomly for diversity
-  const variant = Math.floor(Math.random() * 4);
+  const analysisParas = pickTemplates(analysisParagraphs, 1 + Math.floor(Math.random() * 2));
+  const contextParas = pickTemplates(contextParagraphs, 1);
+  const playerParas = templateData.player ? pickTemplates(playerFocusParagraphs, 1) : [];
+  const puns = randomPuns(facts.sport, 1);
 
   const paragraphs: string[] = [];
 
-  switch (variant) {
-    case 0: {
-      // Classic: opening -> recap -> transition -> details -> pun -> sentiment -> closing
-      paragraphs.push(`<p>${randomPhrase(openingLines)}</p>`);
-      paragraphs.push(`<p>${mainRecap}</p>`);
-      paragraphs.push(`<p><strong>${randomPhrase(beerTransitions)}</strong></p>`);
-      for (const tmpl of bodyDetails) {
-        paragraphs.push(`<p>${tmpl(templateData)}</p>`);
-        if (Math.random() > 0.5) {
-          paragraphs.push(`<p><em>${randomPhrase(humorInterjections)}</em></p>`);
+  // ── 1. Opening (1 paragraph) ──────────────────────────────────────────────
+  paragraphs.push(`<p>${randomPhrase(openingLines)}</p>`);
+
+  // ── 2. Main recap (1 paragraph) ───────────────────────────────────────────
+  paragraphs.push(`<p>${mainRecap}</p>`);
+
+  // ── 3. Game narrative from real description (2-3 paragraphs) ──────────────
+  if (facts.description && facts.description.length > 20) {
+    const descSentences = splitIntoSentences(facts.description);
+    if (descSentences.length > 0) {
+      // Group sentences into paragraphs of 2-3 sentences each
+      const sentenceGroups: string[][] = [];
+      let currentGroup: string[] = [];
+      for (const sentence of descSentences) {
+        currentGroup.push(rewriteSentenceWithHumor(sentence, facts));
+        if (currentGroup.length >= 2 + Math.floor(Math.random() * 2)) {
+          sentenceGroups.push(currentGroup);
+          currentGroup = [];
         }
       }
-      paragraphs.push(`<p>${puns[0]}</p>`);
-      paragraphs.push(`<p><strong>${randomPhrase(sentiment)}</strong></p>`);
-      paragraphs.push(`<p>${randomPhrase(beerTransitions)}</p>`);
-      paragraphs.push(`<p><em>${randomPhrase(closingLines)}</em></p>`);
-      break;
-    }
-    case 1: {
-      // No opening transition — jump straight into the recap, double puns
-      paragraphs.push(`<p>${mainRecap}</p>`);
-      paragraphs.push(`<p><em>${randomPhrase(humorInterjections)}</em></p>`);
-      for (const tmpl of bodyDetails) {
-        paragraphs.push(`<p>${tmpl(templateData)}</p>`);
+      if (currentGroup.length > 0) sentenceGroups.push(currentGroup);
+
+      for (const group of sentenceGroups) {
+        paragraphs.push(`<p>${group.join(' ')}</p>`);
       }
-      paragraphs.push(`<p>${puns[0]}</p>`);
-      paragraphs.push(`<p><strong>${randomPhrase(beerTransitions)}</strong></p>`);
-      if (puns[1]) paragraphs.push(`<p>${puns[1]}</p>`);
-      paragraphs.push(`<p><strong>${randomPhrase(sentiment)}</strong></p>`);
-      paragraphs.push(`<p><em>${randomPhrase(closingLines)}</em></p>`);
-      break;
-    }
-    case 2: {
-      // Interjection-heavy: opening -> recap -> interjection -> details interleaved with interjections
-      paragraphs.push(`<p>${randomPhrase(openingLines)}</p>`);
-      paragraphs.push(`<p>${mainRecap}</p>`);
-      paragraphs.push(`<p><em>${randomPhrase(humorInterjections)}</em></p>`);
-      paragraphs.push(`<p><strong>${randomPhrase(beerTransitions)}</strong></p>`);
-      for (const tmpl of bodyDetails) {
-        paragraphs.push(`<p>${tmpl(templateData)}</p>`);
-        paragraphs.push(`<p><em>${randomPhrase(humorInterjections)}</em></p>`);
-      }
-      paragraphs.push(`<p>${puns[0]}</p>`);
-      paragraphs.push(`<p><strong>${randomPhrase(sentiment)}</strong></p>`);
-      paragraphs.push(`<p><em>${randomPhrase(closingLines)}</em></p>`);
-      break;
-    }
-    case 3:
-    default: {
-      // Sentiment-first: opening -> sentiment -> recap -> transition -> short details -> pun -> closing
-      paragraphs.push(`<p>${randomPhrase(openingLines)}</p>`);
-      paragraphs.push(`<p><strong>${randomPhrase(sentiment)}</strong></p>`);
-      paragraphs.push(`<p>${mainRecap}</p>`);
-      paragraphs.push(`<p><strong>${randomPhrase(beerTransitions)}</strong></p>`);
-      const shortDetails = bodyDetails.slice(0, 2);
-      for (const tmpl of shortDetails) {
-        paragraphs.push(`<p>${tmpl(templateData)}</p>`);
-      }
-      paragraphs.push(`<p>${puns[0]}</p>`);
-      paragraphs.push(`<p>${randomPhrase(beerTransitions)}</p>`);
-      paragraphs.push(`<p><em>${randomPhrase(closingLines)}</em></p>`);
-      break;
     }
   }
 
-  // Add the actual game details rewritten with humor
-  if (facts.description && facts.description.length > 20) {
-    const descSentences = splitIntoSentences(facts.description);
-    for (const sentence of descSentences) {
-      paragraphs.push(`<p>${rewriteSentenceWithHumor(sentence, facts)}</p>`);
-    }
+  // ── 4. Body detail paragraphs (1-2 paragraphs of game details) ────────────
+  for (const tmpl of bodyDetails.slice(0, 2)) {
+    paragraphs.push(`<p>${tmpl(templateData)}</p>`);
   }
+
+  // ── 5. Analysis (1-2 paragraphs of intelligent commentary) ────────────────
+  // Add ONE non-beer transition before analysis
+  paragraphs.push(`<p>${pickTransition()}</p>`);
+
+  for (const tmpl of analysisParas) {
+    paragraphs.push(`<p>${tmpl(templateData)}</p>`);
+  }
+
+  // ── 6. Player focus (1 paragraph if player data available) ────────────────
+  if (playerParas.length > 0) {
+    paragraphs.push(`<p>${playerParas[0]!(templateData)}</p>`);
+  }
+
+  // ── 7. Context paragraph (1 paragraph — why this game matters) ────────────
+  paragraphs.push(`<p>${contextParas[0]!(templateData)}</p>`);
+
+  // ── 8. Key stat/moment + sentiment (1 paragraph) ─────────────────────────
+  const contextualReaction = getContextualReaction(facts);
+  paragraphs.push(`<p><strong>${randomPhrase(sentiment)}</strong> ${contextualReaction}</p>`);
+
+  // ── 9. Sport pun sign-off (1 paragraph) ───────────────────────────────────
+  if (puns[0]) {
+    paragraphs.push(`<p>${puns[0]}</p>`);
+  }
+
+  // ── 10. Closing (1 paragraph) ─────────────────────────────────────────────
+  paragraphs.push(`<p><em>${randomPhrase(closingLines)}</em></p>`);
 
   return paragraphs.join('\n');
 }
@@ -346,42 +377,56 @@ function buildScoreBody(facts: ExtractedFacts, templateData: TemplateData): stri
 function buildNewsBody(facts: ExtractedFacts, templateData: TemplateData): string {
   const paragraphs: string[] = [];
   const description = facts.description || '';
+  const newsTemplates = getNewsTemplates(description);
 
-  // Opening with humor
+  // ── 1. Opening (1 paragraph) ──────────────────────────────────────────────
   paragraphs.push(`<p>${randomPhrase(openingLines)}</p>`);
 
-  // Break the real description into sentences and rewrite each with humor
+  // ── 2. News template lead (1 paragraph) ───────────────────────────────────
+  paragraphs.push(`<p>${pickTemplate(newsTemplates)(templateData)}</p>`);
+
+  // ── 3. Real description as backbone (2-3 paragraphs) ─────────────────────
   const sentences = splitIntoSentences(description);
 
-  for (let i = 0; i < sentences.length; i++) {
-    const sentence = sentences[i]!.trim();
-    if (!sentence) continue;
-
-    // Rewrite the fact with humorous framing
-    const rewritten = rewriteSentenceWithHumor(sentence, facts);
-    paragraphs.push(`<p>${rewritten}</p>`);
-
-    // Add humor between paragraphs (not after every one)
-    if (i < sentences.length - 1 && Math.random() > 0.5) {
-      const roll = Math.random();
-      if (roll < 0.33) {
-        paragraphs.push(`<p><strong>${randomPhrase(beerTransitions)}</strong></p>`);
-      } else if (roll < 0.66) {
-        paragraphs.push(`<p><em>${randomPhrase(humorInterjections)}</em></p>`);
+  if (sentences.length > 0) {
+    // Group sentences into natural paragraphs
+    const sentenceGroups: string[][] = [];
+    let currentGroup: string[] = [];
+    for (let i = 0; i < sentences.length; i++) {
+      const sentence = sentences[i]!.trim();
+      if (!sentence) continue;
+      currentGroup.push(rewriteSentenceWithHumor(sentence, facts));
+      if (currentGroup.length >= 2 + Math.floor(Math.random() * 2)) {
+        sentenceGroups.push(currentGroup);
+        currentGroup = [];
       }
+    }
+    if (currentGroup.length > 0) sentenceGroups.push(currentGroup);
+
+    for (const group of sentenceGroups) {
+      paragraphs.push(`<p>${group.join(' ')}</p>`);
     }
   }
 
-  // If description was too short, add more context (but don't repeat the description)
+  // If description was too short, add more context
   if (sentences.length < 2) {
-    paragraphs.push(`<p><strong>${randomPhrase(beerTransitions)}</strong></p>`);
     paragraphs.push(`<p>We'll keep an eye on this story as it develops. For now, ${facts.sport ? `the ${facts.sport} world` : 'the sports world'} has plenty to talk about.</p>`);
   }
 
-  // Sport pun
+  // ── 4. Analysis/context (1-2 paragraphs) ──────────────────────────────────
+  const analysisParas = pickTemplates(analysisParagraphs, 1);
+  paragraphs.push(`<p>${analysisParas[0]!(templateData)}</p>`);
+
+  // ── 5. ONE beer transition max for news articles ──────────────────────────
+  paragraphs.push(`<p>${pickTransition()}</p>`);
+
+  // ── 6. Contextual sport pun — try to match the story ─────────────────────
   paragraphs.push(`<p>${randomPun(facts.sport)}</p>`);
 
-  // Closing
+  // ── 7. Witty commentary sign-off ──────────────────────────────────────────
+  paragraphs.push(`<p>${randomPhrase(wittyCommentary)}</p>`);
+
+  // ── 8. Closing ────────────────────────────────────────────────────────────
   paragraphs.push(`<p><em>${randomPhrase(closingLines)}</em></p>`);
 
   return paragraphs.join('\n');
@@ -389,12 +434,15 @@ function buildNewsBody(facts: ExtractedFacts, templateData: TemplateData): strin
 
 // ─── Summary Builder ────────────────────────────────────────────────────────
 
+/**
+ * Build a 2-3 sentence summary.
+ * Sentence 1: factual summary. Sentence 2: witty one-liner (not necessarily beer-themed).
+ */
 function buildSummary(facts: ExtractedFacts): string {
   const parts: string[] = [];
 
-  // Use the real description as the factual base
+  // Sentence 1: factual summary
   if (facts.description && facts.description.length > 20) {
-    // Take the first sentence of the real description
     const firstSentence = facts.description.replace(/<[^>]*>/g, '').split(/[.!?]/)[0];
     if (firstSentence && firstSentence.trim().length > 10) {
       parts.push(firstSentence.trim() + '.');
@@ -407,7 +455,8 @@ function buildSummary(facts: ExtractedFacts): string {
     }
   }
 
-  parts.push(randomPhrase(beerTransitions));
+  // Sentence 2: witty one-liner commentary (not beer-themed)
+  parts.push(randomPhrase(wittyCommentary));
 
   return parts.join(' ');
 }
@@ -422,30 +471,39 @@ function buildSubtitle(facts: ExtractedFacts): string {
       `${facts.winner ?? 'The victors'} leave no survivors`,
       `A demolition in every sense of the word`,
       `${facts.loser ?? 'The losers'} might need therapy after this one`,
+      `We're going to need a bigger highlight reel`,
+      `This one was over before it started`,
     );
   } else if (facts.isCloseGame) {
     options.push(
-      `A thriller that required multiple beverages to survive`,
+      `A thriller that required nerves of steel to survive`,
       `Cardiac arrest: the game`,
       `${facts.winner ?? 'The winners'} escape by the skin of their teeth`,
+      `Both teams deserve a vacation after this`,
+      `The kind of game that ages you in real time`,
     );
   } else if (facts.isDraw) {
     options.push(
-      `Nobody wins, everybody drinks`,
       `A stalemate that satisfied absolutely no one`,
-      `Split the points, split a pitcher`,
+      `Nobody wins, nobody's happy`,
+      `Split the points, split opinions`,
+      `The most frustrating kind of result`,
     );
   } else if (facts.category === 'news') {
     options.push(
-      `Grab a drink and settle in`,
+      `You're going to want to sit down for this`,
       `The latest from the world of ${facts.sport ?? 'sports'}`,
-      `Breaking news best served with a cold one`,
+      `The sports world won't shut up about this`,
+      `Developing story that changes everything`,
+      `Buckle up — this is a big one`,
     );
   } else {
     options.push(
       `Your ${facts.sport ?? 'sports'} recap, served fresh`,
-      `All the action, none of the sobriety`,
-      `The only recap worth reading with a beer in hand`,
+      `All the action, all the drama`,
+      `The only recap worth reading today`,
+      `Everything that happened, and why it matters`,
+      `A game that delivered on every promise`,
     );
   }
 
@@ -455,7 +513,8 @@ function buildSubtitle(facts: ExtractedFacts): string {
 // ─── Main Rewrite Function ──────────────────────────────────────────────────
 
 /**
- * Rewrite a raw article into a humorous, beer-themed version.
+ * Rewrite a raw article into a witty, well-written version
+ * with natural humor and occasional beer/bar references.
  */
 export function rewriteArticle(raw: RawArticleData): RewrittenArticle {
   const facts = extractFacts(raw);

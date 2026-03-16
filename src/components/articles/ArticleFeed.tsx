@@ -1,12 +1,22 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import { ArticleCard } from './ArticleCard';
 import { ArticleSkeleton } from './ArticleSkeleton';
 import { timeAgo } from '@/lib/utils';
 
 const PAGE_SIZE = 12;
+
+const CATEGORY_TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'scores', label: 'Scores' },
+  { key: 'news', label: 'News' },
+  { key: 'highlights', label: 'Highlights' },
+  { key: 'stats', label: 'Stats' },
+] as const;
+
+type CategoryKey = (typeof CATEGORY_TABS)[number]['key'];
 
 interface Article {
   id: string;
@@ -33,11 +43,14 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState('');
+  const [activeCategory, setActiveCategory] = useState<CategoryKey>('all');
+  const tabsRef = useRef<HTMLDivElement>(null);
 
   const fetchArticles = useCallback(
-    async (offset: number) => {
+    async (offset: number, category?: CategoryKey) => {
       const params = new URLSearchParams();
       if (sportId) params.set('sportId', sportId);
+      if (category && category !== 'all') params.set('category', category);
       params.set('limit', String(PAGE_SIZE));
       params.set('offset', String(offset));
 
@@ -61,7 +74,7 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
       setHasMore(true);
 
       try {
-        const data = await fetchArticles(0);
+        const data = await fetchArticles(0, activeCategory);
         setArticles(data);
         if (data.length < PAGE_SIZE) setHasMore(false);
       } catch {
@@ -72,12 +85,16 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
     }
 
     loadInitial();
-  }, [fetchArticles]);
+  }, [fetchArticles, activeCategory]);
+
+  function handleCategoryChange(category: CategoryKey) {
+    setActiveCategory(category);
+  }
 
   async function handleLoadMore() {
     setLoadingMore(true);
     try {
-      const data = await fetchArticles(articles.length);
+      const data = await fetchArticles(articles.length, activeCategory);
       setArticles((prev) => [...prev, ...data]);
       if (data.length < PAGE_SIZE) setHasMore(false);
     } catch {
@@ -136,11 +153,31 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
           {headerLabel}
         </p>
       )}
+      {/* Category Filter Tabs */}
+      <div
+        ref={tabsRef}
+        className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1"
+      >
+        {CATEGORY_TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => handleCategoryChange(tab.key)}
+            className={`flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+              activeCategory === tab.key
+                ? 'bg-accent text-bg-primary shadow-sm'
+                : 'bg-bg-elevated text-text-secondary hover:bg-accent/10 hover:text-accent border border-border'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Hero Card - Featured first article */}
       {heroArticle && (
         <Link
           href={`/sports/${heroArticle.sportSlug || 'all'}/${heroArticle.id}`}
-          className="group block bg-bg-card rounded-xl border border-border overflow-hidden hover:border-border-accent hover:shadow-lg hover:shadow-accent/5 transition-all duration-300"
+          className="group block bg-bg-card rounded-2xl border border-border overflow-hidden hover:border-accent/40 hover:shadow-xl hover:shadow-accent/10 transition-all duration-300"
         >
           <div className="grid grid-cols-1 md:grid-cols-2">
             {/* Image */}
@@ -158,8 +195,13 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
                   </span>
                 </div>
               )}
-              {/* Sport Badge */}
-              <div className="absolute top-4 left-4">
+              {/* Dramatic gradient overlay */}
+              <div className="absolute inset-0 bg-gradient-to-t from-bg-card/90 via-bg-card/20 to-transparent pointer-events-none" />
+              {/* Featured Badge + Sport Badge */}
+              <div className="absolute top-4 left-4 flex items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-accent text-bg-primary shadow-lg shadow-accent/25">
+                  Featured
+                </span>
                 <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-bg-primary/80 backdrop-blur-sm text-accent border border-accent/20">
                   <span>{heroArticle.sportIcon}</span>
                   {heroArticle.sportName}
@@ -206,7 +248,7 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
 
       {/* Remaining articles in grid */}
       {restArticles.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {restArticles.map((article) => (
             <ArticleCard
               key={article.id}

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { timeAgo } from '@/lib/utils';
+import { BookmarkButton } from '@/components/articles/BookmarkButton';
 
 interface ArticleCardProps {
   id: string;
@@ -13,6 +14,13 @@ interface ArticleCardProps {
   publishedAt?: Date | number | null;
   generatedAt: Date | number;
   category: string;
+}
+
+function estimateReadingTime(text: string | null | undefined): string {
+  if (!text) return '1 min read';
+  const words = text.trim().split(/\s+/).length;
+  const minutes = Math.max(1, Math.ceil(words / 200));
+  return `${minutes} min read`;
 }
 
 export function ArticleCard({
@@ -30,11 +38,12 @@ export function ArticleCard({
 }: ArticleCardProps) {
   const timestamp = publishedAt || generatedAt;
   const href = `/sports/${sportSlug || 'all'}/${id}`;
+  const readingTime = estimateReadingTime(summary);
 
   return (
     <Link
       href={href}
-      className="group block bg-bg-card rounded-xl border border-border overflow-hidden hover:border-border-accent hover:shadow-lg hover:shadow-accent/5 transition-all duration-300 hover:-translate-y-0.5"
+      className="group block bg-bg-card rounded-2xl border border-border overflow-hidden hover:border-accent/40 hover:shadow-xl hover:shadow-accent/10 transition-all duration-300 hover:-translate-y-1"
     >
       {/* Image or Gradient Placeholder */}
       <div className="relative h-44 overflow-hidden">
@@ -51,6 +60,9 @@ export function ArticleCard({
             </span>
           </div>
         )}
+
+        {/* Gradient overlay for text readability */}
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-bg-card/80 via-bg-card/30 to-transparent pointer-events-none" />
 
         {/* Sport Badge */}
         <div className="absolute top-3 left-3">
@@ -87,12 +99,21 @@ export function ArticleCard({
         )}
 
         <div className="mt-3 flex items-center justify-between">
-          <span className="text-xs text-text-muted">
-            {timeAgo(timestamp)}
-          </span>
-          <span className="text-xs text-accent opacity-0 group-hover:opacity-100 transition-opacity font-medium">
-            Read more &rarr;
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-text-muted">
+              {timeAgo(timestamp)}
+            </span>
+            <span className="text-xs text-text-muted/50">&middot;</span>
+            <span className="text-xs text-text-muted">
+              {readingTime}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <BookmarkButton articleId={id} />
+            <span className="text-xs text-accent opacity-0 group-hover:opacity-100 transition-opacity font-medium">
+              Read more &rarr;
+            </span>
+          </div>
         </div>
       </div>
     </Link>

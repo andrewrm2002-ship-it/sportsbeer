@@ -32,17 +32,26 @@ export function Navbar() {
   const isActive = (href: string) =>
     href === '/' ? pathname === '/' : pathname.startsWith(href);
 
-  const navLinks = [
+  const navLinks: { href: string; label: string; icon?: React.ReactNode }[] = [
     { href: '/', label: 'Home' },
     { href: '/sports', label: 'Sports' },
   ];
 
   if (session) {
+    navLinks.push({
+      href: '/bookmarks',
+      label: 'Bookmarks',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+        </svg>
+      ),
+    });
     navLinks.push({ href: '/admin', label: 'Admin' });
   }
 
   return (
-    <nav className="sticky top-0 z-50 bg-bg-card/95 backdrop-blur-sm border-b border-border">
+    <nav className="sticky top-0 z-50 bg-bg-card/95 backdrop-blur-sm border-b border-border/50 shadow-[0_1px_3px_rgba(0,0,0,0.1)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
@@ -66,18 +75,19 @@ export function Navbar() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                  'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 inline-flex items-center gap-1.5',
                   isActive(link.href)
                     ? 'text-accent bg-accent/10'
                     : 'text-text-secondary hover:text-accent hover:bg-accent-muted'
                 )}
               >
+                {link.icon}
                 {link.label}
               </Link>
             ))}
           </div>
 
-          {/* Search + Theme + Auth / User */}
+          {/* Search + Alerts + Theme + Auth / User */}
           <div className="hidden md:flex items-center gap-3">
             <button
               onClick={() => setSearchOpen(true)}
@@ -89,6 +99,18 @@ export function Navbar() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
             </button>
+            {session && (
+              <Link
+                href="/email-alerts"
+                className="p-2 rounded-lg text-text-secondary hover:text-accent hover:bg-accent-muted transition-colors"
+                aria-label="Email alerts"
+                title="Email Alerts"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+              </Link>
+            )}
             <ThemeToggle />
             {status === 'loading' ? (
               <div className="w-8 h-8 rounded-full skeleton" />
@@ -169,15 +191,33 @@ export function Navbar() {
               href={link.href}
               onClick={() => setMobileOpen(false)}
               className={cn(
-                'block px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+                'flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors',
                 isActive(link.href)
                   ? 'text-accent bg-accent/10'
                   : 'text-text-secondary hover:text-accent hover:bg-accent-muted'
               )}
             >
+              {link.icon}
               {link.label}
             </Link>
           ))}
+          {session && (
+            <Link
+              href="/email-alerts"
+              onClick={() => setMobileOpen(false)}
+              className={cn(
+                'flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+                isActive('/email-alerts')
+                  ? 'text-accent bg-accent/10'
+                  : 'text-text-secondary hover:text-accent hover:bg-accent-muted'
+              )}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+              </svg>
+              Email Alerts
+            </Link>
+          )}
           <button
             onClick={() => {
               setSearchOpen(true);
