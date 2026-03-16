@@ -1,36 +1,72 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Brews & Box Scores 🍺
 
-## Getting Started
+**Where Sports News Gets a Cold One**
 
-First, run the development server:
+A locally-running sports news aggregator that covers 30 sports, rewrites content in a humorous beer-themed style, and lets you personalize your feed.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## Quick Start
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+2. Set up the database:
+   ```bash
+   npm run db:migrate
+   npm run db:seed
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+3. Create your environment file:
+   ```bash
+   cp .env.example .env.local
+   ```
+   Then edit `.env.local` and set a random secret for `NEXTAUTH_SECRET` and `AUTH_SECRET`.
 
-## Learn More
+4. Start the dev server:
+   ```bash
+   npm run dev
+   ```
 
-To learn more about Next.js, take a look at the following resources:
+5. Open [http://localhost:3000](http://localhost:3000)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## First Use
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Click **Register** to create an account
+2. Go to **Preferences** and select your favorite sports
+3. Go to **Admin** and click **"Pour a Fresh Round"** to generate content
+4. Watch as articles are fetched from ESPN and TheSportsDB, rewritten with humor, and published to your feed
 
-## Deploy on Vercel
+## Features
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- 30 sports covered (Soccer, NBA, NFL, NHL, MLB, Tennis, Golf, Cricket, MMA, F1, and 20 more)
+- Humorous, beer-themed content rewriting engine
+- User accounts with personalized sport preferences
+- One-click content generation with real-time progress
+- Article search (Cmd+K / Ctrl+K)
+- Dark/Light mode toggle
+- Article sharing (copy link, Twitter/X)
+- Trending sidebar, stats bar, responsive design
+- Fully local — no hosting required
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Tech Stack
+
+- Next.js 15 (App Router) + TypeScript
+- SQLite (better-sqlite3) + Drizzle ORM
+- NextAuth.js v5 (local credentials)
+- Tailwind CSS + shadcn/ui patterns
+
+## Data Sources
+
+- **ESPN Hidden API** (free, no key) — scores, news, standings for 17+ sports
+- **TheSportsDB** (free) — team metadata, images, event data
+
+## Scripts
+
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start dev server |
+| `npm run build` | Production build |
+| `npm run db:migrate` | Run database migrations |
+| `npm run db:seed` | Seed 30 sports + leagues |
+| `npm run db:generate` | Generate new migrations from schema |
