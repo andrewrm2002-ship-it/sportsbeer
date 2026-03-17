@@ -6,6 +6,8 @@ import { ArticleFeed } from '@/components/articles/ArticleFeed';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { SportContextBar } from '@/components/sports/SportContextBar';
 
+export const dynamic = 'force-dynamic';
+
 interface Props {
   params: Promise<{ slug: string }>;
 }

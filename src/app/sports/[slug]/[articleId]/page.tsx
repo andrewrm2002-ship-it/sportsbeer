@@ -12,6 +12,8 @@ import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
 import { ReadingProgressBar } from '@/components/articles/ReadingProgressBar';
 import { TrendingOtherSports } from '@/components/articles/TrendingOtherSports';
 
+export const dynamic = 'force-dynamic';
+
 interface Props {
   params: Promise<{ slug: string; articleId: string }>;
 }

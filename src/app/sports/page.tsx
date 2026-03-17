@@ -3,6 +3,8 @@ import * as schema from '../../../db/schema';
 import { eq, asc, sql } from 'drizzle-orm';
 import { SportsGrid } from '@/components/sports/SportsGrid';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Sports | Brews & Box Scores',
   description: 'Browse all sports covered by Brews & Box Scores',

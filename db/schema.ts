@@ -253,6 +253,94 @@ export const guzzlers = sqliteTable('guzzlers', {
 
 // ─── Shared Articles ────────────────────────────────────────────────────────
 
+// ─── AI Generation Rounds ──────────────────────────────────────────────────
+
+export const aiGenerationRounds = sqliteTable('ai_generation_rounds', {
+  id: text('id')
+    .primaryKey()
+    .default(sql`(lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))))`),
+  roundNumber: integer('round_number').notNull(),
+  status: text('status', {
+    enum: ['running', 'completed', 'failed'],
+  }).notNull().default('running'),
+  storiesProcessed: integer('stories_processed').notNull().default(0),
+  avgScore: integer('avg_score'),
+  bestScore: integer('best_score'),
+  instructionVersionId: text('instruction_version_id'),
+  startedAt: integer('started_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+  completedAt: integer('completed_at', { mode: 'timestamp' }),
+  errors: text('errors', { mode: 'json' }).$type<string[]>(),
+});
+
+// ─── AI Article Variants ───────────────────────────────────────────────────
+
+export const aiArticleVariants = sqliteTable('ai_article_variants', {
+  id: text('id')
+    .primaryKey()
+    .default(sql`(lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))))`),
+  roundId: text('round_id')
+    .notNull()
+    .references(() => aiGenerationRounds.id, { onDelete: 'cascade' }),
+  sourceArticleHash: text('source_article_hash').notNull(),
+  sourceTitle: text('source_title').notNull(),
+  writerStyle: text('writer_style', {
+    enum: ['punchy', 'storyteller', 'analyst'],
+  }).notNull(),
+  title: text('title').notNull(),
+  subtitle: text('subtitle'),
+  body: text('body').notNull(),
+  summary: text('summary'),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// ─── AI Variant Scores ─────────────────────────────────────────────────────
+
+export const aiVariantScores = sqliteTable('ai_variant_scores', {
+  id: text('id')
+    .primaryKey()
+    .default(sql`(lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))))`),
+  variantId: text('variant_id')
+    .notNull()
+    .references(() => aiArticleVariants.id, { onDelete: 'cascade' }),
+  judgeId: text('judge_id', {
+    enum: ['editor', 'reader'],
+  }).notNull(),
+  humorQuality: integer('humor_quality').notNull(),
+  factualAccuracy: integer('factual_accuracy').notNull(),
+  beerIntegration: integer('beer_integration').notNull(),
+  readabilityFlow: integer('readability_flow').notNull(),
+  headlineQuality: integer('headline_quality').notNull(),
+  overallEngagement: integer('overall_engagement').notNull(),
+  totalScore: integer('total_score').notNull(),
+  feedback: text('feedback'),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// ─── AI Instruction Versions ───────────────────────────────────────────────
+
+export const aiInstructionVersions = sqliteTable('ai_instruction_versions', {
+  id: text('id')
+    .primaryKey()
+    .default(sql`(lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))))`),
+  roundId: text('round_id')
+    .references(() => aiGenerationRounds.id, { onDelete: 'set null' }),
+  content: text('content').notNull(),
+  avgScoreBefore: integer('avg_score_before'),
+  avgScoreAfter: integer('avg_score_after'),
+  changesSummary: text('changes_summary'),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// ─── Shared Articles ────────────────────────────────────────────────────────
+
 export const sharedArticles = sqliteTable('shared_articles', {
   id: text('id')
     .primaryKey()

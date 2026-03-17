@@ -8,6 +8,8 @@ import { db } from '../../db';
 import * as schema from '../../db/schema';
 import { eq } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'Brews & Box Scores — Where Sports News Gets a Cold One',
   description: 'Your daily sports news served with a side of humor. Coverage of 30 sports, rewritten with personality.',
