@@ -228,6 +228,11 @@ export const guzzlers = sqliteTable('guzzlers', {
   awayTeam: text('away_team').notNull(),
   commenceTime: integer('commence_time', { mode: 'timestamp' }).notNull(),
   market: text('market').notNull().default('h2h'),
+  type: text('type', {
+    enum: ['arb', 'near_miss', 'value', 'mismatch'],
+  })
+    .notNull()
+    .default('arb'),
   profitPercent: text('profit_percent').notNull(),
   isArb: integer('is_arb', { mode: 'boolean' }).notNull().default(false),
   outcomes: text('outcomes', { mode: 'json' }).$type<

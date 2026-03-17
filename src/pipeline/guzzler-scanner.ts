@@ -1,11 +1,13 @@
 /**
- * Guaranteed Guzzlers — arbitrage scanner.
- * Fetches odds from The Odds API, detects arbs (and near-misses),
- * and stores them in the guzzlers table.
+ * Guaranteed Guzzlers — odds scanner.
+ * Fetches odds from The Odds API, detects:
+ *   - Arbs: implied probabilities across books sum to <100%
+ *   - Value bets: one book's odds significantly above market average
+ *   - Mismatches: biggest disagreements between books on the same outcome
  */
 
 import { db } from '../../db';
-import { guzzlers, sports } from '../../db/schema';
+import { guzzlers } from '../../db/schema';
 import { eq, and, lt } from 'drizzle-orm';
 import {
   fetchAllOdds,
@@ -29,6 +31,7 @@ export interface GuzzlerOpportunity {
   homeTeam: string;
   awayTeam: string;
   commenceTime: Date;
+  type: 'arb' | 'near_miss' | 'value' | 'mismatch';
   profitPercent: number;
   isArb: boolean;
   outcomes: GuzzlerOutcome[];
@@ -39,77 +42,68 @@ export interface ScanResult {
   totalEvents: number;
   arbsFound: number;
   nearMissesFound: number;
+  valueBetsFound: number;
+  mismatchesFound: number;
   leaguesScanned: number;
   errors: string[];
   requestsRemaining?: number;
 }
 
-// ─── Near-miss threshold: store opportunities where books' margin < 5% ─────
+// ─── Thresholds ─────────────────────────────────────────────────────────────
 
+/** Arb near-miss: store when combined implied prob < this */
 const NEAR_MISS_THRESHOLD = 1.05;
+/** Value bet: book's odds must be this % above market average */
+const VALUE_EDGE_MIN = 8;
+/** Mismatch: max-min spread must be this % of min odds */
+const MISMATCH_SPREAD_MIN = 15;
+/** Max value bets to keep per scan (top N by edge) */
+const MAX_VALUE_BETS = 30;
+/** Max mismatches to keep per scan (top N by spread) */
+const MAX_MISMATCHES = 20;
 
-// ─── Arb Detection ──────────────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────────────────────
 
-function analyzeEvent(
-  event: OddsApiEvent,
-  mapping: OddsLeagueMapping,
-): GuzzlerOpportunity | null {
+interface ParsedEvent {
+  event: OddsApiEvent;
+  mapping: OddsLeagueMapping;
+  outcomeNames: string[];
+  /** For each outcome: array of { odds, book } across all books */
+  oddsByOutcome: Map<string, { odds: number; book: string }[]>;
+  /** Best (highest) odds per outcome */
+  bestOdds: Map<string, { odds: number; book: string }>;
+  allBookOdds: { book: string; outcomes: { name: string; odds: number }[] }[];
+}
+
+function parseEvent(event: OddsApiEvent, mapping: OddsLeagueMapping): ParsedEvent | null {
   if (event.bookmakers.length < 2) return null;
 
-  // Collect all outcome names from h2h market
   const outcomeNames = new Set<string>();
+  const oddsByOutcome = new Map<string, { odds: number; book: string }[]>();
+
   for (const book of event.bookmakers) {
     const h2h = book.markets.find((m) => m.key === 'h2h');
     if (!h2h) continue;
     for (const outcome of h2h.outcomes) {
       outcomeNames.add(outcome.name);
+      const existing = oddsByOutcome.get(outcome.name) ?? [];
+      existing.push({ odds: outcome.price, book: book.title });
+      oddsByOutcome.set(outcome.name, existing);
     }
   }
 
   if (outcomeNames.size < 2) return null;
 
-  // For each outcome, find the best (highest) odds across all books
+  // Best odds per outcome
   const bestOdds = new Map<string, { odds: number; book: string }>();
-
-  for (const name of outcomeNames) {
-    let best = { odds: 0, book: '' };
-    for (const book of event.bookmakers) {
-      const h2h = book.markets.find((m) => m.key === 'h2h');
-      if (!h2h) continue;
-      const outcome = h2h.outcomes.find((o) => o.name === name);
-      if (outcome && outcome.price > best.odds) {
-        best = { odds: outcome.price, book: book.title };
-      }
+  for (const [name, entries] of oddsByOutcome) {
+    let best = entries[0]!;
+    for (const entry of entries) {
+      if (entry.odds > best.odds) best = entry;
     }
-    if (best.odds > 0) {
-      bestOdds.set(name, best);
-    }
+    bestOdds.set(name, best);
   }
 
-  // Calculate total implied probability using best odds per outcome
-  let totalImplied = 0;
-  for (const [, { odds }] of bestOdds) {
-    totalImplied += 1 / odds;
-  }
-
-  // Only store if within our near-miss threshold
-  if (totalImplied >= NEAR_MISS_THRESHOLD) return null;
-
-  const profitPercent = (1 / totalImplied - 1) * 100;
-  const isArb = totalImplied < 1;
-
-  // Calculate optimal stake percentages
-  const outcomes: GuzzlerOutcome[] = [];
-  for (const [name, { odds, book }] of bestOdds) {
-    outcomes.push({
-      name,
-      odds,
-      book,
-      stakePct: parseFloat((((1 / odds) / totalImplied) * 100).toFixed(2)),
-    });
-  }
-
-  // Collect all book odds for the comparison table
   const allBookOdds = event.bookmakers
     .map((b) => {
       const h2h = b.markets.find((m) => m.key === 'h2h');
@@ -122,89 +116,218 @@ function analyzeEvent(
     .filter((b): b is NonNullable<typeof b> => b !== null);
 
   return {
-    eventKey: event.id,
-    sportId: mapping.sportId,
-    leagueId: mapping.leagueId,
-    homeTeam: event.home_team,
-    awayTeam: event.away_team,
-    commenceTime: new Date(event.commence_time),
-    profitPercent: parseFloat(profitPercent.toFixed(2)),
-    isArb,
-    outcomes,
+    event,
+    mapping,
+    outcomeNames: [...outcomeNames],
+    oddsByOutcome,
+    bestOdds,
     allBookOdds,
   };
 }
 
+function makeBaseOpportunity(
+  parsed: ParsedEvent,
+  type: GuzzlerOpportunity['type'],
+  profitPercent: number,
+  outcomes: GuzzlerOutcome[],
+): GuzzlerOpportunity {
+  return {
+    eventKey: parsed.event.id,
+    sportId: parsed.mapping.sportId,
+    leagueId: parsed.mapping.leagueId,
+    homeTeam: parsed.event.home_team,
+    awayTeam: parsed.event.away_team,
+    commenceTime: new Date(parsed.event.commence_time),
+    type,
+    profitPercent,
+    isArb: type === 'arb',
+    outcomes,
+    allBookOdds: parsed.allBookOdds,
+  };
+}
+
+// ─── Arb / Near-Miss Detection ──────────────────────────────────────────────
+
+function detectArb(parsed: ParsedEvent): GuzzlerOpportunity | null {
+  let totalImplied = 0;
+  for (const [, { odds }] of parsed.bestOdds) {
+    totalImplied += 1 / odds;
+  }
+
+  if (totalImplied >= NEAR_MISS_THRESHOLD) return null;
+
+  const profitPercent = parseFloat(((1 / totalImplied - 1) * 100).toFixed(2));
+  const isArb = totalImplied < 1;
+  const type = isArb ? 'arb' as const : 'near_miss' as const;
+
+  const outcomes: GuzzlerOutcome[] = [];
+  for (const [name, { odds, book }] of parsed.bestOdds) {
+    outcomes.push({
+      name,
+      odds,
+      book,
+      stakePct: parseFloat((((1 / odds) / totalImplied) * 100).toFixed(2)),
+    });
+  }
+
+  return makeBaseOpportunity(parsed, type, profitPercent, outcomes);
+}
+
+// ─── Value Bet Detection ────────────────────────────────────────────────────
+
+function detectValueBets(parsed: ParsedEvent): GuzzlerOpportunity[] {
+  const results: GuzzlerOpportunity[] = [];
+
+  for (const [name, entries] of parsed.oddsByOutcome) {
+    if (entries.length < 3) continue; // need enough books for meaningful average
+
+    const avg = entries.reduce((sum, e) => sum + e.odds, 0) / entries.length;
+    const best = parsed.bestOdds.get(name)!;
+    const edge = ((best.odds - avg) / avg) * 100;
+
+    if (edge < VALUE_EDGE_MIN) continue;
+
+    // Build outcomes: the value outcome first, then others for context
+    const outcomes: GuzzlerOutcome[] = [
+      { name, odds: best.odds, book: best.book, stakePct: 100 },
+    ];
+    // Add the other outcomes at market average for reference
+    for (const [otherName, otherBest] of parsed.bestOdds) {
+      if (otherName === name) continue;
+      const otherEntries = parsed.oddsByOutcome.get(otherName) ?? [];
+      const otherAvg = otherEntries.length > 0
+        ? otherEntries.reduce((s, e) => s + e.odds, 0) / otherEntries.length
+        : otherBest.odds;
+      outcomes.push({
+        name: otherName,
+        odds: otherBest.odds,
+        book: otherBest.book,
+        stakePct: parseFloat(((otherAvg / best.odds) * 100).toFixed(2)),
+      });
+    }
+
+    results.push(
+      makeBaseOpportunity(parsed, 'value', parseFloat(edge.toFixed(2)), outcomes),
+    );
+  }
+
+  return results;
+}
+
+// ─── Mismatch Detection ─────────────────────────────────────────────────────
+
+function detectMismatch(parsed: ParsedEvent): GuzzlerOpportunity | null {
+  let maxSpread = 0;
+  let maxSpreadOutcome = '';
+
+  for (const [name, entries] of parsed.oddsByOutcome) {
+    if (entries.length < 3) continue;
+
+    const odds = entries.map((e) => e.odds);
+    const min = Math.min(...odds);
+    const max = Math.max(...odds);
+    const spread = ((max - min) / min) * 100;
+
+    if (spread > maxSpread) {
+      maxSpread = spread;
+      maxSpreadOutcome = name;
+    }
+  }
+
+  if (maxSpread < MISMATCH_SPREAD_MIN || !maxSpreadOutcome) return null;
+
+  const entries = parsed.oddsByOutcome.get(maxSpreadOutcome)!;
+  const sorted = [...entries].sort((a, b) => b.odds - a.odds);
+  const highest = sorted[0]!;
+  const lowest = sorted[sorted.length - 1]!;
+
+  const outcomes: GuzzlerOutcome[] = [
+    { name: `${maxSpreadOutcome} (highest)`, odds: highest.odds, book: highest.book, stakePct: 0 },
+    { name: `${maxSpreadOutcome} (lowest)`, odds: lowest.odds, book: lowest.book, stakePct: 0 },
+  ];
+
+  // Add other outcomes for context
+  for (const [name, best] of parsed.bestOdds) {
+    if (name === maxSpreadOutcome) continue;
+    outcomes.push({ name, odds: best.odds, book: best.book, stakePct: 0 });
+  }
+
+  return makeBaseOpportunity(parsed, 'mismatch', parseFloat(maxSpread.toFixed(2)), outcomes);
+}
+
 // ─── Scanner ────────────────────────────────────────────────────────────────
 
-/**
- * Run the Guaranteed Guzzlers scan:
- * 1. Mark events that have already started as 'started'
- * 2. Fetch fresh odds from The Odds API
- * 3. Detect arbs and near-misses
- * 4. Upsert into guzzlers table
- */
 export async function scanForGuzzlers(): Promise<ScanResult> {
   const apiKey = process.env.ODDS_API_KEY;
   if (!apiKey) {
     return {
-      totalEvents: 0,
-      arbsFound: 0,
-      nearMissesFound: 0,
-      leaguesScanned: 0,
+      totalEvents: 0, arbsFound: 0, nearMissesFound: 0,
+      valueBetsFound: 0, mismatchesFound: 0, leaguesScanned: 0,
       errors: ['ODDS_API_KEY not configured. Get a free key at https://the-odds-api.com'],
     };
   }
 
   const result: ScanResult = {
-    totalEvents: 0,
-    arbsFound: 0,
-    nearMissesFound: 0,
-    leaguesScanned: 0,
-    errors: [],
+    totalEvents: 0, arbsFound: 0, nearMissesFound: 0,
+    valueBetsFound: 0, mismatchesFound: 0, leaguesScanned: 0, errors: [],
   };
 
   try {
-    // 1. Expire old guzzlers for events that have started
+    // 1. Expire events that have started
     await db
       .update(guzzlers)
       .set({ status: 'started' })
-      .where(
-        and(
-          eq(guzzlers.status, 'active'),
-          lt(guzzlers.commenceTime, new Date()),
-        ),
-      );
+      .where(and(eq(guzzlers.status, 'active'), lt(guzzlers.commenceTime, new Date())));
 
-    // 2. Fetch odds from all leagues
+    // 2. Fetch odds
     console.log('Scanning for Guaranteed Guzzlers...');
     const { results: oddsResults, errors, requestsRemaining } = await fetchAllOdds(apiKey);
     result.errors.push(...errors);
     result.requestsRemaining = requestsRemaining;
 
-    // 3. Analyze each event for arbs
-    const opportunities: GuzzlerOpportunity[] = [];
+    // 3. Analyze all events
+    const allArbs: GuzzlerOpportunity[] = [];
+    const allValueBets: GuzzlerOpportunity[] = [];
+    const allMismatches: GuzzlerOpportunity[] = [];
 
     for (const { mapping, events } of oddsResults) {
       result.leaguesScanned++;
       result.totalEvents += events.length;
 
       for (const event of events) {
-        const opp = analyzeEvent(event, mapping);
-        if (opp) {
-          opportunities.push(opp);
-        }
+        const parsed = parseEvent(event, mapping);
+        if (!parsed) continue;
+
+        // Arb / near-miss (always keep all of these)
+        const arb = detectArb(parsed);
+        if (arb) allArbs.push(arb);
+
+        // Value bets
+        const values = detectValueBets(parsed);
+        allValueBets.push(...values);
+
+        // Mismatch
+        const mismatch = detectMismatch(parsed);
+        if (mismatch) allMismatches.push(mismatch);
       }
     }
 
-    // 4. Mark all existing active guzzlers as expired (we'll re-insert fresh ones)
+    // 4. Sort and cap value bets / mismatches
+    allValueBets.sort((a, b) => b.profitPercent - a.profitPercent);
+    allMismatches.sort((a, b) => b.profitPercent - a.profitPercent);
+    const topValueBets = allValueBets.slice(0, MAX_VALUE_BETS);
+    const topMismatches = allMismatches.slice(0, MAX_MISMATCHES);
+
+    const allOpportunities = [...allArbs, ...topValueBets, ...topMismatches];
+
+    // 5. Replace active guzzlers
     await db
       .update(guzzlers)
       .set({ status: 'expired' })
       .where(eq(guzzlers.status, 'active'));
 
-    // 5. Insert new opportunities
-    for (const opp of opportunities) {
+    // 6. Insert
+    for (const opp of allOpportunities) {
       try {
         await db.insert(guzzlers).values({
           sportId: opp.sportId,
@@ -214,6 +337,7 @@ export async function scanForGuzzlers(): Promise<ScanResult> {
           awayTeam: opp.awayTeam,
           commenceTime: opp.commenceTime,
           market: 'h2h',
+          type: opp.type,
           profitPercent: opp.profitPercent.toFixed(2),
           isArb: opp.isArb,
           outcomes: opp.outcomes,
@@ -221,21 +345,24 @@ export async function scanForGuzzlers(): Promise<ScanResult> {
           status: 'active',
         });
 
-        if (opp.isArb) {
-          result.arbsFound++;
-        } else {
-          result.nearMissesFound++;
+        switch (opp.type) {
+          case 'arb': result.arbsFound++; break;
+          case 'near_miss': result.nearMissesFound++; break;
+          case 'value': result.valueBetsFound++; break;
+          case 'mismatch': result.mismatchesFound++; break;
         }
       } catch (error) {
         console.error(
-          `Failed to save guzzler ${opp.homeTeam} vs ${opp.awayTeam}:`,
+          `Failed to save guzzler ${opp.homeTeam} vs ${opp.awayTeam} (${opp.type}):`,
           error instanceof Error ? error.message : error,
         );
       }
     }
 
     console.log(
-      `Guzzler scan complete: ${result.arbsFound} arbs, ${result.nearMissesFound} near-misses from ${result.leaguesScanned} leagues (${result.totalEvents} events)`,
+      `Guzzler scan complete: ${result.arbsFound} arbs, ${result.nearMissesFound} near-misses, ` +
+      `${result.valueBetsFound} value bets, ${result.mismatchesFound} mismatches ` +
+      `from ${result.leaguesScanned} leagues (${result.totalEvents} events)`,
     );
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);

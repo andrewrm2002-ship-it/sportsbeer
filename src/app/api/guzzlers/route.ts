@@ -7,12 +7,16 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const sportId = searchParams.get('sportId');
+    const type = searchParams.get('type');
     const arbsOnly = searchParams.get('arbsOnly') === 'true';
     const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 100);
 
     const conditions = [eq(schema.guzzlers.status, 'active')];
     if (sportId) conditions.push(eq(schema.guzzlers.sportId, sportId));
     if (arbsOnly) conditions.push(eq(schema.guzzlers.isArb, true));
+    if (type && ['arb', 'near_miss', 'value', 'mismatch'].includes(type)) {
+      conditions.push(eq(schema.guzzlers.type, type as 'arb' | 'near_miss' | 'value' | 'mismatch'));
+    }
 
     const results = await db
       .select({
@@ -27,6 +31,7 @@ export async function GET(request: NextRequest) {
         awayTeam: schema.guzzlers.awayTeam,
         commenceTime: schema.guzzlers.commenceTime,
         market: schema.guzzlers.market,
+        type: schema.guzzlers.type,
         profitPercent: schema.guzzlers.profitPercent,
         isArb: schema.guzzlers.isArb,
         outcomes: schema.guzzlers.outcomes,

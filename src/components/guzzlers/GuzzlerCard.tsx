@@ -9,6 +9,8 @@ interface GuzzlerOutcome {
   stakePct: number;
 }
 
+export type GuzzlerType = 'arb' | 'near_miss' | 'value' | 'mismatch';
+
 export interface GuzzlerData {
   id: string;
   sportName: string;
@@ -17,42 +19,78 @@ export interface GuzzlerData {
   homeTeam: string;
   awayTeam: string;
   commenceTime: number;
+  type: GuzzlerType;
   profitPercent: string;
   isArb: boolean;
   outcomes: GuzzlerOutcome[];
   allBookOdds?: { book: string; outcomes: { name: string; odds: number }[] }[];
 }
 
-const BEER_LABELS = {
-  bigArb: [
+// ─── Beer-themed labels per type ────────────────────────────────────────────
+
+const BEER_LABELS: Record<string, string[]> = {
+  arb_big: [
     'Ice Cold Free Money',
     'Frosty Payday',
     'Tap Room Treasure',
     'Golden Pint Alert',
   ],
-  smallArb: [
+  arb: [
     'Guaranteed Guzzler',
     'Free Round Detected',
     'The House Buys',
     'Liquid Gold',
   ],
-  nearMiss: [
+  near_miss: [
     'Almost on Tap',
     'Warming Up',
     'One Sip Away',
     'Close to the Keg',
   ],
+  value: [
+    'Happy Hour Special',
+    'Mispriced Draft',
+    'Bartender Slipped',
+    'Below Market Pint',
+    'Clearance Keg',
+    'The Good Stuff\'s Cheap',
+  ],
+  mismatch: [
+    'Bar Fight Brewing',
+    'Books Can\'t Agree',
+    'Split the Tab',
+    'Dueling Bartenders',
+    'House Divided',
+    'Odds on the Fritz',
+  ],
 };
 
-function getBeerLabel(profitPct: number, isArb: boolean): string {
-  if (isArb && profitPct >= 2) {
-    return BEER_LABELS.bigArb[Math.floor(Math.random() * BEER_LABELS.bigArb.length)]!;
-  }
-  if (isArb) {
-    return BEER_LABELS.smallArb[Math.floor(Math.random() * BEER_LABELS.smallArb.length)]!;
-  }
-  return BEER_LABELS.nearMiss[Math.floor(Math.random() * BEER_LABELS.nearMiss.length)]!;
+function pickLabel(type: GuzzlerType, profitPct: number): string {
+  const key = type === 'arb' && profitPct >= 2 ? 'arb_big' : type;
+  const pool = BEER_LABELS[key] ?? BEER_LABELS.near_miss;
+  return pool[Math.floor(Math.random() * pool.length)]!;
 }
+
+const TYPE_COLORS: Record<GuzzlerType, { bg: string; text: string; border: string }> = {
+  arb:       { bg: 'bg-green-500/5',  text: 'text-green-400', border: 'border-green-500/20 hover:border-green-500/40' },
+  near_miss: { bg: 'bg-bg-card',      text: 'text-accent',    border: 'border-border hover:border-accent/40' },
+  value:     { bg: 'bg-blue-500/5',   text: 'text-blue-400',  border: 'border-blue-500/20 hover:border-blue-500/40' },
+  mismatch:  { bg: 'bg-orange-500/5', text: 'text-orange-400', border: 'border-orange-500/20 hover:border-orange-500/40' },
+};
+
+const TYPE_BADGE: Record<GuzzlerType, { bg: string; text: string; border: string; label: string }> = {
+  arb:       { bg: 'bg-green-500/15',  text: 'text-green-400',  border: 'border-green-500/30', label: 'ARB' },
+  near_miss: { bg: 'bg-accent/15',     text: 'text-accent',     border: 'border-accent/30',    label: 'NEAR' },
+  value:     { bg: 'bg-blue-500/15',   text: 'text-blue-400',   border: 'border-blue-500/30',  label: 'VALUE' },
+  mismatch:  { bg: 'bg-orange-500/15', text: 'text-orange-400', border: 'border-orange-500/30', label: 'SPLIT' },
+};
+
+const TYPE_METRIC: Record<GuzzlerType, { suffix: string; desc: string }> = {
+  arb:       { suffix: '% profit', desc: 'guaranteed return regardless of outcome' },
+  near_miss: { suffix: '% margin', desc: 'books still have a slim edge' },
+  value:     { suffix: '% edge', desc: 'above market average at this book' },
+  mismatch:  { suffix: '% spread', desc: 'disagreement between highest and lowest book' },
+};
 
 function formatKickoff(timestamp: number): string {
   const date = new Date(timestamp * 1000);
@@ -61,8 +99,7 @@ function formatKickoff(timestamp: number): string {
   const diffHours = diffMs / (1000 * 60 * 60);
 
   if (diffHours < 1 && diffHours > 0) {
-    const mins = Math.floor(diffMs / (1000 * 60));
-    return `${mins}m`;
+    return `${Math.floor(diffMs / (1000 * 60))}m`;
   }
   if (diffHours < 24 && diffHours > 0) {
     return `${Math.floor(diffHours)}h`;
@@ -78,7 +115,10 @@ export function GuzzlerCard({
   compact?: boolean;
 }) {
   const profitPct = parseFloat(guzzler.profitPercent);
-  const label = getBeerLabel(profitPct, guzzler.isArb);
+  const type = guzzler.type ?? (guzzler.isArb ? 'arb' : 'near_miss');
+  const badge = TYPE_BADGE[type];
+  const colors = TYPE_COLORS[type];
+  const metric = TYPE_METRIC[type];
 
   if (compact) {
     return (
@@ -89,12 +129,10 @@ export function GuzzlerCard({
             <span
               className={cn(
                 'text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded',
-                guzzler.isArb
-                  ? 'bg-green-500/15 text-green-400'
-                  : 'bg-accent/15 text-accent',
+                badge.bg, badge.text,
               )}
             >
-              {guzzler.isArb ? 'ARB' : 'NEAR'}
+              {badge.label}
             </span>
             <span className="text-[10px] text-text-muted">{formatKickoff(guzzler.commenceTime)}</span>
           </div>
@@ -102,13 +140,8 @@ export function GuzzlerCard({
             {guzzler.homeTeam} vs {guzzler.awayTeam}
           </p>
           <div className="flex items-center gap-1 mt-1">
-            <span
-              className={cn(
-                'text-xs font-bold',
-                guzzler.isArb ? 'text-green-400' : 'text-accent',
-              )}
-            >
-              {profitPct > 0 ? '+' : ''}{profitPct.toFixed(2)}%
+            <span className={cn('text-xs font-bold', colors.text)}>
+              {profitPct > 0 ? '+' : ''}{profitPct.toFixed(1)}%
             </span>
             {guzzler.outcomes?.slice(0, 2).map((o, i) => (
               <span key={i} className="text-[10px] text-text-muted">
@@ -121,15 +154,10 @@ export function GuzzlerCard({
     );
   }
 
+  const label = pickLabel(type, profitPct);
+
   return (
-    <div
-      className={cn(
-        'rounded-xl border p-5 transition-all duration-200',
-        guzzler.isArb
-          ? 'bg-green-500/5 border-green-500/20 hover:border-green-500/40'
-          : 'bg-bg-card border-border hover:border-accent/40',
-      )}
-    >
+    <div className={cn('rounded-xl border p-5 transition-all duration-200', colors.bg, colors.border)}>
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -140,10 +168,8 @@ export function GuzzlerCard({
         </div>
         <span
           className={cn(
-            'text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-full',
-            guzzler.isArb
-              ? 'bg-green-500/15 text-green-400 border border-green-500/30'
-              : 'bg-accent/15 text-accent border border-accent/30',
+            'text-xs font-bold uppercase tracking-wider px-2 py-1 rounded-full border',
+            badge.bg, badge.text, badge.border,
           )}
         >
           {label}
@@ -156,41 +182,31 @@ export function GuzzlerCard({
       </h3>
       <p className="text-xs text-text-muted mb-4">
         Kickoff: {new Date(guzzler.commenceTime * 1000).toLocaleString('en-US', {
-          weekday: 'short',
-          month: 'short',
-          day: 'numeric',
-          hour: 'numeric',
-          minute: '2-digit',
+          weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
         })}
       </p>
 
-      {/* Profit */}
+      {/* Metric */}
       <div className="flex items-center gap-3 mb-4">
         <span className="text-2xl">
-          {guzzler.isArb ? '\uD83C\uDF7A' : '\uD83C\uDF7B'}
+          {type === 'arb' ? '\uD83C\uDF7A' : type === 'value' ? '\uD83C\uDF7B' : type === 'mismatch' ? '\uD83C\uDF7E' : '\uD83C\uDF7B'}
         </span>
         <div>
-          <p
-            className={cn(
-              'text-2xl font-extrabold',
-              guzzler.isArb ? 'text-green-400' : 'text-accent',
-            )}
-          >
-            {profitPct > 0 ? '+' : ''}{profitPct.toFixed(2)}%
+          <p className={cn('text-2xl font-extrabold', colors.text)}>
+            {profitPct > 0 ? '+' : ''}{profitPct.toFixed(2)}{metric.suffix}
           </p>
-          <p className="text-xs text-text-muted">
-            {guzzler.isArb
-              ? 'guaranteed return regardless of outcome'
-              : 'margin — books still have a slim edge'}
-          </p>
+          <p className="text-xs text-text-muted">{metric.desc}</p>
         </div>
       </div>
 
-      {/* Outcomes / stake breakdown */}
+      {/* Outcomes */}
       {guzzler.outcomes && (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wider text-text-muted">
-            {guzzler.isArb ? 'Optimal Stakes ($100 total)' : 'Best Available Odds'}
+            {type === 'arb' ? 'Optimal Stakes ($100 total)'
+              : type === 'value' ? 'Value Line vs Market'
+              : type === 'mismatch' ? 'Biggest Disagreement'
+              : 'Best Available Odds'}
           </p>
           {guzzler.outcomes.map((outcome, i) => (
             <div
@@ -198,21 +214,15 @@ export function GuzzlerCard({
               className="flex items-center justify-between p-3 rounded-lg bg-bg-primary/50 border border-border/50"
             >
               <div className="flex-1">
-                <p className="text-sm font-semibold text-text-primary">
-                  {outcome.name}
-                </p>
+                <p className="text-sm font-semibold text-text-primary">{outcome.name}</p>
                 <p className="text-xs text-text-muted">
-                  at <span className="font-medium text-accent">{outcome.book}</span>
+                  at <span className={cn('font-medium', colors.text)}>{outcome.book}</span>
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-sm font-bold text-text-primary">
-                  {outcome.odds.toFixed(2)}
-                </p>
-                {guzzler.isArb && (
-                  <p className="text-xs text-text-muted">
-                    ${outcome.stakePct.toFixed(0)}
-                  </p>
+                <p className="text-sm font-bold text-text-primary">{outcome.odds.toFixed(2)}</p>
+                {type === 'arb' && (
+                  <p className="text-xs text-text-muted">${outcome.stakePct.toFixed(0)}</p>
                 )}
               </div>
             </div>
@@ -231,41 +241,28 @@ export function GuzzlerCard({
               <thead>
                 <tr className="text-text-muted border-b border-border/50">
                   <th className="text-left py-1 pr-3">Book</th>
-                  {guzzler.outcomes?.map((o, i) => (
-                    <th key={i} className="text-right py-1 px-2">{o.name}</th>
+                  {[...new Set(guzzler.allBookOdds.flatMap(b => b.outcomes.map(o => o.name)))].map((name, i) => (
+                    <th key={i} className="text-right py-1 px-2">{name}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {guzzler.allBookOdds.map((book, i) => (
-                  <tr key={i} className="border-b border-border/30">
-                    <td className="py-1.5 pr-3 font-medium text-text-secondary">
-                      {book.book}
-                    </td>
-                    {guzzler.outcomes?.map((bestOutcome, j) => {
-                      const bookOdds = book.outcomes.find(
-                        (o) => o.name === bestOutcome.name,
-                      );
-                      const isBest =
-                        bookOdds &&
-                        bookOdds.odds === bestOutcome.odds &&
-                        book.book === bestOutcome.book;
-                      return (
-                        <td
-                          key={j}
-                          className={cn(
-                            'text-right py-1.5 px-2',
-                            isBest
-                              ? 'font-bold text-green-400'
-                              : 'text-text-secondary',
-                          )}
-                        >
-                          {bookOdds?.odds.toFixed(2) ?? '-'}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                {guzzler.allBookOdds.map((book, i) => {
+                  const allNames = [...new Set(guzzler.allBookOdds!.flatMap(b => b.outcomes.map(o => o.name)))];
+                  return (
+                    <tr key={i} className="border-b border-border/30">
+                      <td className="py-1.5 pr-3 font-medium text-text-secondary">{book.book}</td>
+                      {allNames.map((name, j) => {
+                        const bookOdds = book.outcomes.find(o => o.name === name);
+                        return (
+                          <td key={j} className="text-right py-1.5 px-2 text-text-secondary">
+                            {bookOdds?.odds.toFixed(2) ?? '-'}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

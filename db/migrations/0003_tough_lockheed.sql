@@ -1,0 +1,1 @@
+ALTER TABLE `guzzlers` ADD `type` text DEFAULT 'arb' NOT NULL;

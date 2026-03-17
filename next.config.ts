@@ -1,6 +1,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: 'standalone',
+  basePath: '/sports',
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },

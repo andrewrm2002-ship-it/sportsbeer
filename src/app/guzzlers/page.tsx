@@ -2,17 +2,29 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { GuzzlerCard, type GuzzlerData } from '@/components/guzzlers/GuzzlerCard';
+import { GuzzlerCard, type GuzzlerData, type GuzzlerType } from '@/components/guzzlers/GuzzlerCard';
 import { cn } from '@/lib/utils';
 
 interface ScanResult {
   totalEvents: number;
   arbsFound: number;
   nearMissesFound: number;
+  valueBetsFound: number;
+  mismatchesFound: number;
   leaguesScanned: number;
   errors: string[];
   requestsRemaining?: number;
 }
+
+type FilterKey = 'all' | GuzzlerType;
+
+const FILTER_TABS: { key: FilterKey; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'arb', label: 'Arbs' },
+  { key: 'value', label: 'Value Bets' },
+  { key: 'mismatch', label: 'Mismatches' },
+  { key: 'near_miss', label: 'Near Misses' },
+];
 
 export default function GuzzlersPage() {
   const { data: session } = useSession();
@@ -20,15 +32,12 @@ export default function GuzzlersPage() {
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-  const [filter, setFilter] = useState<'all' | 'arbs' | 'near'>('all');
+  const [filter, setFilter] = useState<FilterKey>('all');
 
   const fetchGuzzlers = async () => {
     try {
       const res = await fetch('/api/guzzlers?limit=100');
-      if (res.ok) {
-        const data = await res.json();
-        setGuzzlers(data);
-      }
+      if (res.ok) setGuzzlers(await res.json());
     } catch {
       // silent
     } finally {
@@ -36,9 +45,7 @@ export default function GuzzlersPage() {
     }
   };
 
-  useEffect(() => {
-    fetchGuzzlers();
-  }, []);
+  useEffect(() => { fetchGuzzlers(); }, []);
 
   const handleScan = async () => {
     setScanning(true);
@@ -50,23 +57,33 @@ export default function GuzzlersPage() {
         setScanResult(data);
         await fetchGuzzlers();
       } else {
-        setScanResult({ totalEvents: 0, arbsFound: 0, nearMissesFound: 0, leaguesScanned: 0, errors: [data.error] });
+        setScanResult({
+          totalEvents: 0, arbsFound: 0, nearMissesFound: 0,
+          valueBetsFound: 0, mismatchesFound: 0, leaguesScanned: 0,
+          errors: [data.error],
+        });
       }
     } catch {
-      setScanResult({ totalEvents: 0, arbsFound: 0, nearMissesFound: 0, leaguesScanned: 0, errors: ['Network error'] });
+      setScanResult({
+        totalEvents: 0, arbsFound: 0, nearMissesFound: 0,
+        valueBetsFound: 0, mismatchesFound: 0, leaguesScanned: 0,
+        errors: ['Network error'],
+      });
     } finally {
       setScanning(false);
     }
   };
 
-  const filtered = guzzlers.filter((g) => {
-    if (filter === 'arbs') return g.isArb;
-    if (filter === 'near') return !g.isArb;
-    return true;
-  });
+  const filtered = filter === 'all'
+    ? guzzlers
+    : guzzlers.filter((g) => (g.type ?? (g.isArb ? 'arb' : 'near_miss')) === filter);
 
-  const arbCount = guzzlers.filter((g) => g.isArb).length;
-  const nearCount = guzzlers.length - arbCount;
+  const countByType = (type: GuzzlerType) =>
+    guzzlers.filter((g) => (g.type ?? (g.isArb ? 'arb' : 'near_miss')) === type).length;
+
+  const totalFound = scanResult
+    ? scanResult.arbsFound + scanResult.nearMissesFound + scanResult.valueBetsFound + scanResult.mismatchesFound
+    : 0;
 
   return (
     <div className="space-y-8">
@@ -83,20 +100,18 @@ export default function GuzzlersPage() {
           Where the Odds Buy Your Round
         </p>
         <p className="mt-4 text-base sm:text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
-          When sportsbooks disagree on the odds, we find the gaps. Bet both sides across
-          different books and sip guaranteed profit — no matter who wins.
+          Arbs, value bets, and line mismatches — scraped from 40+ sportsbooks.
+          When the books disagree, you drink for free.
         </p>
       </section>
 
-      {/* Scan controls (auth required) */}
+      {/* Scan controls */}
       {session && (
         <div className="flex items-center justify-between flex-wrap gap-4 p-4 rounded-xl bg-bg-card border border-border">
           <div>
-            <p className="text-sm font-semibold text-text-primary">
-              Tap the Keg
-            </p>
+            <p className="text-sm font-semibold text-text-primary">Tap the Keg</p>
             <p className="text-xs text-text-muted">
-              Scan {'\u2248'}20 leagues for fresh arbitrage opportunities
+              Scan {'\u2248'}20 leagues for arbs, value bets, and mismatches
             </p>
           </div>
           <button
@@ -114,24 +129,22 @@ export default function GuzzlersPage() {
         </div>
       )}
 
-      {/* Scan result toast */}
+      {/* Scan result */}
       {scanResult && (
         <div
           className={cn(
             'p-4 rounded-xl border text-sm',
-            scanResult.errors.length > 0 && scanResult.arbsFound === 0
+            scanResult.errors.length > 0 && totalFound === 0
               ? 'bg-red-500/10 border-red-500/30 text-red-400'
               : 'bg-green-500/10 border-green-500/30 text-green-400',
           )}
         >
           <p className="font-semibold">
-            {scanResult.arbsFound > 0
-              ? `Found ${scanResult.arbsFound} arb${scanResult.arbsFound !== 1 ? 's' : ''} and ${scanResult.nearMissesFound} near-miss${scanResult.nearMissesFound !== 1 ? 'es' : ''}!`
-              : scanResult.nearMissesFound > 0
-                ? `No confirmed arbs, but ${scanResult.nearMissesFound} near-miss${scanResult.nearMissesFound !== 1 ? 'es' : ''} detected.`
-                : scanResult.errors.length > 0
-                  ? 'Scan encountered errors.'
-                  : 'No opportunities found in this scan.'}
+            {totalFound > 0
+              ? `Found ${totalFound} opportunities: ${scanResult.arbsFound} arb${scanResult.arbsFound !== 1 ? 's' : ''}, ${scanResult.valueBetsFound} value bet${scanResult.valueBetsFound !== 1 ? 's' : ''}, ${scanResult.mismatchesFound} mismatch${scanResult.mismatchesFound !== 1 ? 'es' : ''}`
+              : scanResult.errors.length > 0
+                ? 'Scan encountered errors.'
+                : 'No opportunities found — lines are tight right now.'}
           </p>
           <p className="text-xs mt-1 opacity-75">
             Scanned {scanResult.leaguesScanned} leagues, {scanResult.totalEvents} events.
@@ -141,40 +154,35 @@ export default function GuzzlersPage() {
           </p>
           {scanResult.errors.length > 0 && (
             <ul className="mt-2 text-xs opacity-75 list-disc list-inside">
-              {scanResult.errors.slice(0, 5).map((e, i) => (
-                <li key={i}>{e}</li>
-              ))}
+              {scanResult.errors.slice(0, 5).map((e, i) => <li key={i}>{e}</li>)}
             </ul>
           )}
         </div>
       )}
 
       {/* Filter tabs */}
-      <div className="flex items-center gap-2">
-        {[
-          { key: 'all' as const, label: 'All', count: guzzlers.length },
-          { key: 'arbs' as const, label: 'Arbs', count: arbCount },
-          { key: 'near' as const, label: 'Near Misses', count: nearCount },
-        ].map(({ key, label, count }) => (
-          <button
-            key={key}
-            onClick={() => setFilter(key)}
-            className={cn(
-              'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-              filter === key
-                ? 'bg-accent/15 text-accent border border-accent/30'
-                : 'text-text-secondary hover:text-accent hover:bg-accent-muted border border-transparent',
-            )}
-          >
-            {label}
-            {count > 0 && (
-              <span className="ml-1.5 text-xs opacity-60">({count})</span>
-            )}
-          </button>
-        ))}
+      <div className="flex items-center gap-2 flex-wrap">
+        {FILTER_TABS.map(({ key, label }) => {
+          const count = key === 'all' ? guzzlers.length : countByType(key);
+          return (
+            <button
+              key={key}
+              onClick={() => setFilter(key)}
+              className={cn(
+                'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                filter === key
+                  ? 'bg-accent/15 text-accent border border-accent/30'
+                  : 'text-text-secondary hover:text-accent hover:bg-accent-muted border border-transparent',
+              )}
+            >
+              {label}
+              {count > 0 && <span className="ml-1.5 text-xs opacity-60">({count})</span>}
+            </button>
+          );
+        })}
       </div>
 
-      {/* Guzzler grid */}
+      {/* Grid */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -185,9 +193,7 @@ export default function GuzzlersPage() {
         <div className="text-center py-16">
           <span className="text-5xl block mb-4">&#x1F37B;</span>
           <p className="text-lg font-semibold text-text-secondary">
-            {guzzlers.length === 0
-              ? 'No guzzlers on tap yet'
-              : 'No matches for this filter'}
+            {guzzlers.length === 0 ? 'No guzzlers on tap yet' : 'No matches for this filter'}
           </p>
           <p className="text-sm text-text-muted mt-2">
             {guzzlers.length === 0
@@ -197,9 +203,7 @@ export default function GuzzlersPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filtered.map((g) => (
-            <GuzzlerCard key={g.id} guzzler={g} />
-          ))}
+          {filtered.map((g) => <GuzzlerCard key={g.id} guzzler={g} />)}
         </div>
       )}
 
@@ -208,27 +212,33 @@ export default function GuzzlersPage() {
         <h2 className="text-lg font-bold text-text-primary mb-4 flex items-center gap-2">
           <span>&#x1F4A1;</span> How Guaranteed Guzzlers Work
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-sm text-text-secondary">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-sm text-text-secondary">
           <div>
-            <p className="font-semibold text-text-primary mb-1">1. Odds Diverge</p>
+            <p className="font-semibold text-green-400 mb-1">&#x1F37A; Arbs</p>
             <p>
-              Different sportsbooks set different odds. When Book A likes Team X and
-              Book B likes Team Y, the implied probabilities can sum to less than 100%.
+              When implied probabilities across books sum to &lt;100%, bet both sides for
+              guaranteed profit. Rare, small (1-3%), and close fast.
             </p>
           </div>
           <div>
-            <p className="font-semibold text-text-primary mb-1">2. The Math</p>
+            <p className="font-semibold text-blue-400 mb-1">&#x1F37B; Value Bets</p>
             <p>
-              If <code className="text-accent">1/odds_A + 1/odds_B &lt; 1</code>, an
-              arbitrage exists. Bet the right proportions on each side at each book,
-              and you profit regardless of who wins.
+              One book&apos;s odds are significantly above the market average — a mispriced line.
+              Not guaranteed, but positive expected value.
             </p>
           </div>
           <div>
-            <p className="font-semibold text-text-primary mb-1">3. The Catch</p>
+            <p className="font-semibold text-orange-400 mb-1">&#x1F37E; Mismatches</p>
             <p>
-              Real arbs are rare, small (1-3%), and close fast as lines move.
-              This scanner checks 20+ leagues across 40+ books to find them.
+              The biggest disagreements between books on the same outcome.
+              When the spread is wide, someone&apos;s wrong.
+            </p>
+          </div>
+          <div>
+            <p className="font-semibold text-accent mb-1">&#x1F943; Near Misses</p>
+            <p>
+              Almost arbs — margin under 5%. Lines are close and could flip
+              into an arb as books adjust.
             </p>
           </div>
         </div>
