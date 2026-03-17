@@ -10,7 +10,9 @@ import type { SportConfig, RawArticleData } from './fetchers/types';
 import { fetchFromEspn } from './fetchers/espn';
 import { fetchFromTheSportsDb } from './fetchers/thesportsdb';
 import { fetchFromRss } from './fetchers/rss';
+import { fetchFromLeagueSites } from './fetchers/league-sites';
 import { deduplicateArticles, getArticleHash } from './deduplicator';
+import { scrapeArticleText } from './fetchers/scraper';
 import { rewriteArticle } from './rewriter';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -101,6 +103,17 @@ async function fetchForSport(sportConfig: SportConfig): Promise<{
     // RSS is supplementary, don't block on errors
   }
 
+  await delay(300);
+
+  // Try official league news pages
+  try {
+    const leagueResult = await fetchFromLeagueSites(sportConfig);
+    allArticles.push(...leagueResult.articles);
+    allErrors.push(...leagueResult.errors);
+  } catch {
+    // League sites are supplementary
+  }
+
   return { articles: allArticles, errors: allErrors };
 }
 
@@ -126,7 +139,7 @@ async function saveArticlesToDb(
         originalSourceUrl: raw.sourceUrl ?? null,
         originalSourceName: raw.sourceName,
         sourceDataHash: getArticleHash(raw),
-        imageUrl: raw.imageUrl ?? null,
+        imageUrl: null,
         category: raw.category,
         tags: raw.teams ?? [],
         publishedAt: raw.publishedAt,
@@ -180,9 +193,37 @@ export async function generateContentForSport(
       return { ...progress, status: 'complete', articleCount: 0 };
     }
 
+    // 2b. Scrape full content for articles with sourceUrl
+    const needsScraping = newArticles.filter((a) => !a.fullContent && a.sourceUrl);
+    if (needsScraping.length > 0) {
+      const SCRAPE_BATCH = 5;
+      for (let i = 0; i < needsScraping.length; i += SCRAPE_BATCH) {
+        const batch = needsScraping.slice(i, i + SCRAPE_BATCH);
+        await Promise.allSettled(
+          batch.map(async (article) => {
+            try {
+              const text = await scrapeArticleText(article.sourceUrl!);
+              if (text) article.fullContent = text;
+            } catch { /* best-effort */ }
+          }),
+        );
+        if (i + SCRAPE_BATCH < needsScraping.length) await delay(300);
+      }
+    }
+
+    // 2c. Filter: only keep articles with substantial content or structured score data
+    const MIN_CONTENT = 1500;
+    const contentArticles = newArticles.filter(
+      (a) => (a.fullContent && a.fullContent.length >= MIN_CONTENT) || (a.category === 'scores' && a.fullContent && a.fullContent.length >= 300),
+    );
+
+    if (contentArticles.length === 0) {
+      return { ...progress, status: 'complete', articleCount: 0 };
+    }
+
     // 3. Rewrite each article (individually wrapped so one failure doesn't kill the batch)
     onProgress?.({ ...progress, status: 'rewriting' });
-    const rewriteResults = newArticles.map((article) => {
+    const rewriteResults = contentArticles.map((article) => {
       try {
         return { ok: true as const, value: rewriteArticle(article) };
       } catch (error) {
@@ -196,7 +237,7 @@ export async function generateContentForSport(
 
     // Filter out failed rewrites and keep corresponding raw articles in sync
     const successfulPairs = rewriteResults
-      .map((r, i) => (r.ok ? { raw: newArticles[i]!, rewritten: r.value } : null))
+      .map((r, i) => (r.ok ? { raw: contentArticles[i]!, rewritten: r.value } : null))
       .filter((pair): pair is NonNullable<typeof pair> => pair !== null);
 
     const filteredRaw = successfulPairs.map((p) => p.raw);

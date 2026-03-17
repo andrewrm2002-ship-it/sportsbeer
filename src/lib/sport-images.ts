@@ -52,11 +52,11 @@ const SPORT_IMAGES: Record<string, string[]> = {
     'https://images.unsplash.com/photo-1544298621-35a764866aeb?w=800&h=400&fit=crop',
     'https://images.unsplash.com/photo-1580705038002-efa2ca1a2b6d?w=800&h=400&fit=crop',
   ],
-  'mma-ufc': [
+  mma: [
     'https://images.unsplash.com/photo-1549719386-74dfcbf7dbed?w=800&h=400&fit=crop',
     'https://images.unsplash.com/photo-1555597673-b21d5c935865?w=800&h=400&fit=crop',
   ],
-  'f1-racing': [
+  f1: [
     'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800&h=400&fit=crop',
     'https://images.unsplash.com/photo-1541348263662-e068662d82af?w=800&h=400&fit=crop',
   ],

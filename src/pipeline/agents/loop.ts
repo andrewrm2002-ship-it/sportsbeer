@@ -34,7 +34,7 @@ export interface LoopOptions {
 
 const DEFAULT_OPTIONS: LoopOptions = {
   maxRounds: 5,
-  storiesPerRound: 3,
+  storiesPerRound: 6,
   targetScore: 8.0,
   verbose: false,
 };
@@ -81,6 +81,13 @@ async function saveBestArticles(
     // Pick the highest-scoring variant
     const best = storyVariants.sort((a, b) => b.avgScore - a.avgScore)[0]!;
 
+    // Quality gate: don't publish articles below minimum score
+    const MIN_PUBLISH_SCORE = 6.0;
+    if (best.avgScore < MIN_PUBLISH_SCORE) {
+      console.log(`  Skipping "${best.variant.output.title.slice(0, 50)}..." — score ${best.avgScore.toFixed(1)} below threshold ${MIN_PUBLISH_SCORE}`);
+      continue;
+    }
+
     try {
       await db.insert(schema.articles).values({
         sportId: story.raw.sport,
@@ -91,7 +98,7 @@ async function saveBestArticles(
         originalSourceUrl: story.raw.sourceUrl ?? null,
         originalSourceName: story.raw.sourceName,
         sourceDataHash: getArticleHash(story.raw),
-        imageUrl: story.raw.imageUrl ?? null,
+        imageUrl: null,
         category: story.raw.category,
         tags: [...(story.raw.teams ?? []), 'ai-generated'],
         publishedAt: story.raw.publishedAt,

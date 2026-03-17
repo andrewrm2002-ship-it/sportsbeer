@@ -7,6 +7,7 @@ export interface RawArticleData {
   category: 'scores' | 'news' | 'stats' | 'highlights';
   sourceUrl?: string;
   sourceName: string;
+  fullContent?: string;
   imageUrl?: string;
   teams?: string[];
   scores?: { home: string; away: string; homeScore: number; awayScore: number };

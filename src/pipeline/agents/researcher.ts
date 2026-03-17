@@ -10,7 +10,9 @@ import type { SportConfig } from '../fetchers/types';
 import { fetchFromEspn } from '../fetchers/espn';
 import { fetchFromTheSportsDb } from '../fetchers/thesportsdb';
 import { fetchFromRss } from '../fetchers/rss';
+import { fetchFromLeagueSites } from '../fetchers/league-sites';
 import { deduplicateArticles, getArticleHash } from '../deduplicator';
+import { scrapeArticleText } from '../fetchers/scraper';
 import type { StoryData } from './types';
 
 function delay(ms: number): Promise<void> {
@@ -53,6 +55,17 @@ async function fetchForSport(config: SportConfig): Promise<StoryData[]> {
     // RSS is supplementary
   }
 
+  await delay(300);
+
+  try {
+    const result = await fetchFromLeagueSites(config);
+    for (const article of result.articles) {
+      allArticles.push({ raw: article, hash: getArticleHash(article) });
+    }
+  } catch {
+    // League sites are supplementary
+  }
+
   return allArticles;
 }
 
@@ -78,9 +91,9 @@ export async function researchStories(count: number): Promise<StoryData[]> {
     return [];
   }
 
-  // Shuffle sports for variety, then take a subset
+  // Shuffle sports for variety, then take a broader subset
   const shuffled = activeSports.sort(() => Math.random() - 0.5);
-  const sportsToFetch = shuffled.slice(0, Math.min(5, shuffled.length));
+  const sportsToFetch = shuffled.slice(0, Math.min(10, shuffled.length));
 
   const allStories: StoryData[] = [];
 
@@ -111,12 +124,48 @@ export async function researchStories(count: number): Promise<StoryData[]> {
     hash: getArticleHash(raw),
   }));
 
+  // Scrape full article content for ALL deduped stories that need it
+  const needsScraping = dedupedStories.filter(
+    (s) => !s.raw.fullContent && s.raw.sourceUrl,
+  );
+  if (needsScraping.length > 0) {
+    console.log(`  Scraping full article text for ${needsScraping.length} stories...`);
+    const SCRAPE_BATCH = 5;
+    for (let i = 0; i < needsScraping.length; i += SCRAPE_BATCH) {
+      const batch = needsScraping.slice(i, i + SCRAPE_BATCH);
+      await Promise.allSettled(
+        batch.map(async (story) => {
+          try {
+            const text = await scrapeArticleText(story.raw.sourceUrl!);
+            if (text) {
+              story.raw.fullContent = text;
+              console.log(`    ✓ Scraped ${text.length} chars from ${story.raw.sourceName}: "${story.raw.title.slice(0, 50)}..."`);
+            }
+          } catch {
+            // Scraping is best-effort
+          }
+        }),
+      );
+      if (i + SCRAPE_BATCH < needsScraping.length) await delay(300);
+    }
+  }
+
+  // Filter: only keep stories with substantial full content (or structured score data)
+  const MIN_CONTENT_LENGTH = 1500;
+  const withContent = dedupedStories.filter(
+    (s) =>
+      (s.raw.fullContent && s.raw.fullContent.length >= MIN_CONTENT_LENGTH) ||
+      (s.raw.category === 'scores' && s.raw.fullContent && s.raw.fullContent.length >= 300),
+  );
+
+  console.log(`  ${withContent.length}/${dedupedStories.length} stories have sufficient content`);
+
   // Take up to `count`, preferring variety in sports
   const selected: StoryData[] = [];
   const seenSports = new Set<string>();
 
   // First pass: one per sport
-  for (const story of dedupedStories) {
+  for (const story of withContent) {
     if (selected.length >= count) break;
     if (!seenSports.has(story.raw.sport)) {
       selected.push(story);
@@ -125,7 +174,7 @@ export async function researchStories(count: number): Promise<StoryData[]> {
   }
 
   // Second pass: fill remaining
-  for (const story of dedupedStories) {
+  for (const story of withContent) {
     if (selected.length >= count) break;
     if (!selected.includes(story)) {
       selected.push(story);

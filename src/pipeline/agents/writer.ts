@@ -8,55 +8,34 @@ import { callClaudeJSON } from './claude-cli';
 import type { WriterStyle, WriterOutput, StoryData, WriterVariant } from './types';
 
 const WRITER_PROMPTS: Record<WriterStyle, string> = {
-  punchy: `You are "The Punchy Columnist" — a sports writer known for razor-sharp one-liners and quick-hit delivery.
+  punchy: `You are a sharp sports writer. Get in, deliver the news with bite, get out.
 
-VOICE & STYLE:
-- Write like a bar-side sports commentator who gets to the point fast
-- Short, punchy sentences. Every paragraph earns its place
-- Beer references woven naturally (~25-30% of transitions), never forced
-- Every paragraph should have at least one line that makes someone smirk
-- Use active voice, strong verbs, no filler words
-- Think "Twitter's best sports account wrote an article"
+YOUR ANGLE:
+- Lead with the hardest-hitting fact. No warmup, no throat-clearing.
+- Every sentence carries new information or a sharp observation. Cut anything that doesn't.
+- Humor comes from being precise about absurdity — not from puns or forced jokes.
+- 3-5 tight paragraphs. If you can say it in fewer words, do.
+- End with the line people will quote — a take, a prediction, a gut-punch observation.`,
 
-STRUCTURE:
-- Catchy headline that makes you want to read
-- Punchy subtitle (one line, sets the tone)
-- 4-6 paragraphs max
-- Opening line that hooks immediately
-- Close with a zinger`,
+  storyteller: `You are a narrative sportswriter who makes readers feel like they were there.
 
-  storyteller: `You are "The Storyteller" — a narrative sportswriter who turns box scores into campfire tales.
+YOUR ANGLE:
+- Build the scene: the crowd, the moment, the stakes. Make it vivid.
+- Let the facts tell the story — don't narrate over them.
+- Tension and pacing matter. Let a big moment breathe before you comment on it.
+- Use specific details from the source: the count, the clock, the player's body language.
+- 4-6 paragraphs with a clear arc. Set up, escalation, resolution.
+- End with a moment of reflection — what this game meant, not just what happened.`,
 
-VOICE & STYLE:
-- Build tension, use vivid imagery, make readers feel like they were there
-- Beer references appear as natural metaphors and scene-setting (~20-25%)
-  e.g., "the kind of game that empties the tap room"
-- Longer, flowing sentences with dramatic pacing
-- Paint the scene: crowd noise, player body language, the weight of the moment
-- Think "if Ernest Hemingway wrote for a brewery's sports magazine"
+  analyst: `You are the smart friend at the bar who notices things nobody else does.
 
-STRUCTURE:
-- Evocative headline that tells a mini-story
-- Atmospheric subtitle
-- 5-8 paragraphs with rising/falling action
-- Scene-setting opener
-- A moment of reflection at the close`,
-
-  analyst: `You are "The Analyst with a Sense of Humor" — a sports analyst who backs every claim with evidence but delivers it with dry wit.
-
-VOICE & STYLE:
-- Data-driven observations with sardonic commentary
-- Beer references used sparingly (~15-20%) as punchlines, never as the main course
-- Balance insight with entertainment
-- Dry, understated humor — the joke is in the observation, not in shouting it
-- Think "the smart friend at the bar who notices things nobody else does"
-
-STRUCTURE:
-- Analytical headline with a twist
-- Subtitle that hints at the deeper story
-- 5-7 paragraphs
-- Lead with the most interesting stat or observation
-- Close with a forward-looking take`,
+YOUR ANGLE:
+- Lead with the most interesting stat or observation, not the obvious headline.
+- Back every claim with evidence. Numbers, records, historical context.
+- Dry, understated humor — the joke is in the observation itself, not in announcing it.
+- Connect dots: what does this result mean for standings, playoffs, draft position?
+- 4-6 paragraphs. Each one earns its place with new analysis.
+- End with a forward-looking take that makes readers think.`,
 };
 
 function buildWriterPrompt(
@@ -72,26 +51,44 @@ function buildWriterPrompt(
   const venueInfo = raw.venue ? `\nVENUE: ${raw.venue}` : '';
   const playersInfo = raw.players?.length ? `\nKEY PLAYERS: ${raw.players.join(', ')}` : '';
 
+  // Truncate fullContent to avoid blowing up context — keep most important parts
+  const truncatedContent = raw.fullContent
+    ? raw.fullContent.length > 6000
+      ? raw.fullContent.slice(0, 6000) + '\n[...truncated]'
+      : raw.fullContent
+    : '';
+
+  const fullContentSection = truncatedContent
+    ? `\n\nFULL SOURCE ARTICLE TEXT (this is your primary source — mine it for every detail):\n${truncatedContent}`
+    : '';
+
   return `${WRITER_PROMPTS[style]}
 
-=== CURRENT WRITING GUIDELINES ===
+=== WRITING GUIDELINES (follow these exactly) ===
 ${instructions}
 === END GUIDELINES ===
 
-=== SOURCE ARTICLE DATA ===
+=== SOURCE MATERIAL ===
 SPORT: ${raw.sport}
 LEAGUE: ${raw.league ?? 'N/A'}
 CATEGORY: ${raw.category}
 ORIGINAL TITLE: ${raw.title}
-DESCRIPTION: ${raw.description}${scoreInfo}${teamsInfo}${venueInfo}${playersInfo}
-=== END SOURCE DATA ===
+DESCRIPTION: ${raw.description}${scoreInfo}${teamsInfo}${venueInfo}${playersInfo}${fullContentSection}
+=== END SOURCE MATERIAL ===
 
 CRITICAL RULES:
-1. Preserve ALL facts exactly: scores, team names, player names, dates, venues
-2. Do NOT invent facts, stats, or quotes that aren't in the source data
-3. Output ONLY valid JSON with this exact structure, no other text:
+1. READ THE FULL SOURCE TEXT CAREFULLY. Extract every specific stat, player name, quote, score, date, and detail. Your article must be INFORMATION-DENSE — readers should learn real things.
+2. DO NOT duplicate information. Say each fact once, in the most impactful place. If you mention a score in the opening, don't repeat it in paragraph 3.
+3. DO NOT use filler phrases: "the sports world is buzzing," "settle in," "what a time to be watching sports," "there's a thin line between chaos and brilliance," "and that's the ballgame." These are empty calories. Every sentence must carry new information or a sharp observation.
+4. NEVER invent facts, stats, quotes, or outcomes not in the source material.
+5. Beer references: 1-2 per article MAXIMUM. They should feel like asides, not structure. No "Hold My Beer," "Pour One Out," "Cheers to This," or any beer-themed headline template.
+6. Headline: the actual news, stated clearly. Be clever if you can, but informative first. It must be SPECIFIC to this story — if you could swap the team name and reuse it, it's too generic.
+7. Short paragraphs: 2-3 sentences max. This is bar conversation, not a term paper.
+8. No emoji. Ever.
 
-{"title":"your headline","subtitle":"your subtitle","body":"<p>paragraph 1</p><p>paragraph 2</p>...","summary":"2-3 sentence summary"}`;
+Output ONLY valid JSON with this exact structure, no other text:
+
+{"title":"your headline","subtitle":"one sentence context, not a pun","body":"<p>paragraph 1</p><p>paragraph 2</p>...","summary":"2-3 sentence factual summary"}`;
 }
 
 /**

@@ -93,7 +93,7 @@ function parseEvents(
       description: description.slice(0, 500),
       category: hasScores ? 'scores' : 'highlights',
       sourceName: 'TheSportsDB',
-      imageUrl: event.strThumb ?? undefined,
+      imageUrl: undefined,
       teams: [event.strHomeTeam, event.strAwayTeam],
       scores:
         hasScores

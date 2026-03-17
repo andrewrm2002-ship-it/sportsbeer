@@ -45,22 +45,21 @@ function buildOptimizerPrompt(
     ? `\nSCORE TREND ACROSS ROUNDS:\n${previousRounds.map((r) => `  Round ${r.roundNumber}: avg=${r.avgScore.toFixed(1)}, best=${r.bestScore.toFixed(1)}`).join('\n')}\n  Round ${currentRound.roundNumber}: avg=${currentRound.avgScore.toFixed(1)}, best=${currentRound.bestScore.toFixed(1)}`
     : '\nThis is the first round — no previous data.';
 
-  return `You are a writing coach analyzing article quality scores for "Brews & Box Scores," a beer-themed sports news site.
+  return `You are a writing coach analyzing article quality scores for "Brews & Box Scores."
 
 YOUR JOB:
 1. Analyze what the highest-scoring writers did differently from the lowest-scoring ones
-2. Find patterns in the scores (e.g., "beer jokes feel forced in injury articles")
-3. Update the writing instructions with specific, actionable improvements
-4. Keep instructions under 1500 words — writers have limited context windows
+2. Find patterns in the scores and judge feedback
+3. APPEND a "## Lessons Learned" section to the existing instructions with specific, actionable improvements
+4. You MUST NOT change the Voice, Rules, Stats Priority, Structure, Variety, or "What We're Not" sections — those are the editorial voice set by the editor-in-chief
 
-IMPORTANT:
-- Be specific. "Write better jokes" is useless. "Open with a situational observation, not a pun" is useful.
-- Track what changes you're making and why
-- If a dimension is consistently low across all writers, it's an instruction problem
-- If only one writer scores low, it's a style problem — note which style needs adjustment
-- Focus on the 2-3 changes that will have the biggest impact
+CRITICAL CONSTRAINT:
+- The existing instructions represent the publication's voice. DO NOT rewrite them.
+- You may ONLY append new guidance in a "## Lessons Learned" section at the end.
+- If the instructions already have a "## Lessons Learned" section, replace ONLY that section.
+- Focus on specific, actionable tips like: "When covering injury reports, lead with the player's stats this season before the injury details" or "Avoid using 'chess not checkers' metaphor — it appeared in 3 articles this round."
 
-=== CURRENT WRITING INSTRUCTIONS ===
+=== CURRENT WRITING INSTRUCTIONS (preserve everything above "## Lessons Learned") ===
 ${currentInstructions}
 === END CURRENT INSTRUCTIONS ===
 ${trendInfo}
@@ -76,7 +75,7 @@ ${bottom3.map(formatVariantSummary).join('\n\n')}
 ROUND ${currentRound.roundNumber} OVERALL: avg=${currentRound.avgScore.toFixed(1)}, best=${currentRound.bestScore.toFixed(1)}, worst=${currentRound.worstScore.toFixed(1)}
 
 Output ONLY valid JSON:
-{"updatedInstructions":"the full updated instructions markdown (max 1500 words)","changesSummary":"2-3 sentences describing what you changed and why"}`;
+{"updatedInstructions":"the COMPLETE instructions with original sections preserved and only Lessons Learned section added/updated at the end","changesSummary":"2-3 sentences describing what patterns you found and what guidance you added"}`;
 }
 
 /**
