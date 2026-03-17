@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArticleFeed } from '@/components/articles/ArticleFeed';
 import { TrendingSidebar } from '@/components/articles/TrendingSidebar';
+import { GuzzlersSidebar } from '@/components/guzzlers/GuzzlersSidebar';
 import { StatsBar } from '@/components/layout/StatsBar';
 import { auth } from '@/lib/auth';
 import { db } from '../../db';
@@ -191,7 +192,10 @@ export default async function HomePage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
           <ArticleFeed headerLabel={session && hasPreferences ? 'Your Feed' : undefined} />
-          <TrendingSidebar />
+          <div className="space-y-6">
+            <GuzzlersSidebar />
+            <TrendingSidebar />
+          </div>
         </div>
       </section>
     </div>

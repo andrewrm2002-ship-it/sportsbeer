@@ -211,6 +211,41 @@ export const bookmarkCollections = sqliteTable(
   ]
 );
 
+// ─── Guzzlers (Arbitrage Opportunities) ────────────────────────────────────
+
+export const guzzlers = sqliteTable('guzzlers', {
+  id: text('id')
+    .primaryKey()
+    .default(sql`(lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))))`),
+  sportId: text('sport_id')
+    .notNull()
+    .references(() => sports.id, { onDelete: 'cascade' }),
+  leagueId: text('league_id').references(() => leagues.id, {
+    onDelete: 'set null',
+  }),
+  eventKey: text('event_key').notNull(),
+  homeTeam: text('home_team').notNull(),
+  awayTeam: text('away_team').notNull(),
+  commenceTime: integer('commence_time', { mode: 'timestamp' }).notNull(),
+  market: text('market').notNull().default('h2h'),
+  profitPercent: text('profit_percent').notNull(),
+  isArb: integer('is_arb', { mode: 'boolean' }).notNull().default(false),
+  outcomes: text('outcomes', { mode: 'json' }).$type<
+    { name: string; odds: number; book: string; stakePct: number }[]
+  >(),
+  allBookOdds: text('all_book_odds', { mode: 'json' }).$type<
+    { book: string; outcomes: { name: string; odds: number }[] }[]
+  >(),
+  status: text('status', {
+    enum: ['active', 'expired', 'started'],
+  })
+    .notNull()
+    .default('active'),
+  detectedAt: integer('detected_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
 // ─── Shared Articles ────────────────────────────────────────────────────────
 
 export const sharedArticles = sqliteTable('shared_articles', {

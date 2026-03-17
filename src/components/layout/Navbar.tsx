@@ -145,6 +145,20 @@ export function Navbar() {
               isActive={pathname.startsWith('/sports')}
             />
 
+            {/* Guzzlers link */}
+            <Link
+              href="/guzzlers"
+              className={cn(
+                'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 inline-flex items-center gap-1.5',
+                isActive('/guzzlers')
+                  ? 'text-accent bg-accent/10'
+                  : 'text-text-secondary hover:text-accent hover:bg-accent-muted'
+              )}
+            >
+              <span className="text-base">&#x1F37A;</span>
+              Guzzlers
+            </Link>
+
             {/* Bookmarks link with counter */}
             {session && (
               <Link
@@ -300,6 +314,21 @@ export function Navbar() {
             preferredSportIds={preferredSportIds}
             onLinkClick={() => setMobileOpen(false)}
           />
+
+          {/* Guzzlers */}
+          <Link
+            href="/guzzlers"
+            onClick={() => setMobileOpen(false)}
+            className={cn(
+              'flex items-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-colors',
+              isActive('/guzzlers')
+                ? 'text-accent bg-accent/10'
+                : 'text-text-secondary hover:text-accent hover:bg-accent-muted'
+            )}
+          >
+            <span className="text-base">&#x1F37A;</span>
+            Guzzlers
+          </Link>
 
           {/* Bookmarks with counter */}
           {session && (

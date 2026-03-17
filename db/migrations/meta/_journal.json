@@ -15,6 +15,13 @@
       "when": 1773700288936,
       "tag": "0001_spooky_proemial_gods",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1773710787058,
+      "tag": "0002_curious_amazoness",
+      "breakpoints": true
     }
   ]
 }
