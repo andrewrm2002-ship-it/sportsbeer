@@ -1,23 +1,25 @@
 @import "tailwindcss";
 
 @theme inline {
-  --color-bg-primary: #141821;
-  --color-bg-card: #1c2333;
-  --color-bg-elevated: #242d3d;
-  --color-bg-input: #0f1729;
-  --color-accent: #e8a820;
-  --color-accent-hover: #f0bc3e;
-  --color-accent-muted: rgba(232, 168, 32, 0.15);
-  --color-accent-glow: rgba(232, 168, 32, 0.08);
-  --color-secondary: #e07a38;
-  --color-secondary-hover: #f09650;
-  --color-text-primary: #f0f0f0;
-  --color-text-secondary: #a0aec0;
-  --color-text-muted: #94a3b8;
-  --color-border: #2a3344;
-  --color-border-accent: rgba(232, 168, 32, 0.3);
-  --color-error: #e53e3e;
-  --color-success: #38a169;
+  /* Dark theme — Premium Sports Bar */
+  --color-bg-primary: #0c0f14;
+  --color-bg-card: #161b24;
+  --color-bg-elevated: #1e2430;
+  --color-bg-input: #0a0d12;
+  --color-accent: #f5a623;
+  --color-accent-hover: #ffc04d;
+  --color-accent-muted: rgba(245, 166, 35, 0.12);
+  --color-accent-glow: rgba(245, 166, 35, 0.06);
+  --color-secondary: #e85d26;
+  --color-secondary-hover: #ff7643;
+  --color-text-primary: #f8f8f8;
+  --color-text-secondary: #b0bac9;
+  --color-text-muted: #7a8599;
+  --color-border: #232b38;
+  --color-border-accent: rgba(245, 166, 35, 0.25);
+  --color-error: #ef4444;
+  --color-success: #22c55e;
+  --color-info: #3b82f6;
   --font-sans: var(--font-geist-sans);
 }
 
@@ -40,11 +42,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Subtle grain texture */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
-  opacity: 0.015;
+  opacity: 0.02;
   pointer-events: none;
   z-index: 9999;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
@@ -52,16 +55,16 @@ body::before {
 
 /* Scrollbar styling */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--color-bg-primary);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
   background: var(--color-border);
-  border-radius: 4px;
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -70,7 +73,7 @@ body::before {
 
 /* Selection styling */
 ::selection {
-  background-color: rgba(232, 168, 32, 0.3);
+  background-color: rgba(245, 166, 35, 0.35);
   color: var(--color-text-primary);
 }
 
@@ -99,8 +102,8 @@ body::before {
 
 /* Hero glow animation */
 @keyframes heroGlow {
-  0% { opacity: 0.2; transform: scale(1); }
-  100% { opacity: 0.4; transform: scale(1.05); }
+  0% { opacity: 0.15; transform: scale(1); }
+  100% { opacity: 0.35; transform: scale(1.05); }
 }
 
 /* Progress bar animation */
@@ -112,25 +115,32 @@ body::before {
   animation: progress-fill 0.3s ease-out;
 }
 
+/* Subtle card hover glow */
+@keyframes cardGlow {
+  0% { box-shadow: 0 0 0 rgba(245, 166, 35, 0); }
+  100% { box-shadow: 0 8px 30px rgba(245, 166, 35, 0.08); }
+}
+
 /* Light theme overrides */
 [data-theme="light"] {
-  --color-bg-primary: #faf8f5;
+  --color-bg-primary: #f7f5f0;
   --color-bg-card: #ffffff;
-  --color-bg-elevated: #f5f0e8;
+  --color-bg-elevated: #f0ece4;
   --color-bg-input: #e8e4dc;
-  --color-accent: #e8a820;
-  --color-accent-hover: #d49518;
-  --color-accent-muted: rgba(232, 168, 32, 0.15);
-  --color-accent-glow: rgba(232, 168, 32, 0.06);
-  --color-secondary: #e07a38;
-  --color-secondary-hover: #d47530;
-  --color-text-primary: #1a1a2e;
-  --color-text-secondary: #5a5a6a;
-  --color-text-muted: #7a7a8a;
-  --color-border: #e5e0d8;
-  --color-border-accent: rgba(232, 168, 32, 0.3);
-  --color-error: #e53e3e;
-  --color-success: #38a169;
+  --color-accent: #d4920a;
+  --color-accent-hover: #b87d08;
+  --color-accent-muted: rgba(212, 146, 10, 0.12);
+  --color-accent-glow: rgba(212, 146, 10, 0.06);
+  --color-secondary: #d4510e;
+  --color-secondary-hover: #b8440c;
+  --color-text-primary: #1a1d24;
+  --color-text-secondary: #4a5060;
+  --color-text-muted: #6a7080;
+  --color-border: #e0dcd4;
+  --color-border-accent: rgba(212, 146, 10, 0.25);
+  --color-error: #dc2626;
+  --color-success: #16a34a;
+  --color-info: #2563eb;
 }
 
 /* Touch targets for coarse pointers (mobile) */
@@ -150,3 +160,12 @@ body::before {
 /* Prose spacing for article body */
 .prose p { margin-bottom: 1.5em; }
 .prose h2, .prose h3 { margin-top: 2em; }
+
+/* Hide scrollbar utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

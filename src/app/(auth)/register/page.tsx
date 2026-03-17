@@ -13,6 +13,13 @@ export default function RegisterPage() {
         <p className="text-sm text-text-muted mt-1">
           Create an account to customize your sports feed
         </p>
+        <div className="flex items-center justify-center gap-3 mt-4 text-xs text-text-muted">
+          <span>&#x1F3C8; 30+ sports</span>
+          <span className="text-border">|</span>
+          <span>&#x1F916; AI summaries</span>
+          <span className="text-border">|</span>
+          <span>&#x1F37A; Beer-themed</span>
+        </div>
       </div>
       <RegisterForm />
     </div>

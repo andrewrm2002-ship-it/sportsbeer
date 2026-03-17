@@ -1,8 +1,10 @@
+'use client';
+
 import Link from 'next/link';
-// TODO: Once remotePatterns are configured in next.config.ts, remove unoptimized={true} from all Image components.
-// Required remotePatterns will depend on the image sources used by articles.
 import Image from 'next/image';
+import { useState } from 'react';
 import { timeAgo } from '@/lib/utils';
+import { getArticleImage } from '@/lib/sport-images';
 import { BookmarkButton } from '@/components/articles/BookmarkButton';
 
 interface ArticleCardProps {
@@ -26,20 +28,15 @@ function estimateReadingTime(text: string | null | undefined): string {
   return `${minutes} min read`;
 }
 
-/**
- * Returns true if the article was published/generated within the last 4 hours.
- */
 function isNewArticle(publishedAt?: Date | number | null, generatedAt?: Date | number): boolean {
   const timestamp = publishedAt || generatedAt;
   if (!timestamp) return false;
-
   const articleTime =
     timestamp instanceof Date
       ? timestamp.getTime()
       : typeof timestamp === 'number'
         ? timestamp < 1e12 ? timestamp * 1000 : timestamp
         : new Date(timestamp).getTime();
-
   const fourHoursMs = 4 * 60 * 60 * 1000;
   return Date.now() - articleTime < fourHoursMs;
 }
@@ -58,34 +55,38 @@ export function ArticleCard({
   category,
 }: ArticleCardProps) {
   const timestamp = publishedAt || generatedAt;
-  const href = `/sports/${sportSlug || 'all'}/${id}`;
+  const slug = sportSlug || 'all';
+  const href = `/sports/${slug}/${id}`;
   const readingTime = estimateReadingTime(summary);
   const isNew = isNewArticle(publishedAt, generatedAt);
+  const resolvedImage = getArticleImage(imageUrl, slug, id);
+  const [imgError, setImgError] = useState(false);
 
   return (
     <Link
       href={href}
       className="group block bg-bg-card rounded-2xl border border-border overflow-hidden hover:border-accent/40 hover:shadow-xl hover:shadow-accent/10 transition-all duration-300 hover:-translate-y-1"
     >
-      {/* Image or Gradient Placeholder — responsive heights */}
-      <div className="relative h-32 sm:h-40 md:h-44 overflow-hidden">
-        {imageUrl ? (
+      {/* Image — always shown */}
+      <div className="relative aspect-[16/10] overflow-hidden">
+        {!imgError ? (
           <Image
-            src={imageUrl}
+            src={resolvedImage}
             alt={title}
             fill
-            unoptimized={true}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             className="object-cover group-hover:scale-105 transition-transform duration-500"
+            onError={() => setImgError(true)}
           />
         ) : (
-          <div className="w-full h-full bg-gradient-to-br from-bg-elevated via-bg-card to-accent/10 flex items-center justify-center">
-            <span className="text-5xl opacity-30 group-hover:opacity-50 transition-opacity">
+          <div className="w-full h-full bg-gradient-to-br from-accent/20 via-bg-elevated to-secondary/20 flex items-center justify-center">
+            <span className="text-5xl opacity-40 group-hover:opacity-60 transition-opacity">
               {sportIcon}
             </span>
           </div>
         )}
 
-        {/* Gradient overlay for text readability */}
+        {/* Gradient overlay */}
         <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-bg-card/80 via-bg-card/30 to-transparent pointer-events-none" />
 
         {/* Sport Badge */}
@@ -94,8 +95,6 @@ export function ArticleCard({
             <span>{sportIcon}</span>
             {sportName}
           </span>
-
-          {/* NEW Badge — shown for articles published within the last 4 hours */}
           {isNew && (
             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/90 text-bg-primary animate-pulse">
               NEW
@@ -147,7 +146,6 @@ export function ArticleCard({
           </div>
         </div>
       </div>
-
     </Link>
   );
 }

@@ -1,11 +1,11 @@
 import Link from 'next/link';
-// TODO: Once remotePatterns are configured in next.config.ts, remove unoptimized={true} from all Image components.
 import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { db } from '../../../../../db';
 import * as schema from '../../../../../db/schema';
 import { eq, and, desc } from 'drizzle-orm';
 import { timeAgo } from '@/lib/utils';
+import { getArticleImage } from '@/lib/sport-images';
 import { ShareButtons } from '@/components/articles/ShareButtons';
 import { BookmarkButton } from '@/components/articles/BookmarkButton';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
@@ -170,17 +170,15 @@ export default async function ArticleDetailPage({ params }: Props) {
       </header>
 
       {/* Hero Image — consistent 16:9 aspect ratio */}
-      {article.imageUrl && (
-        <div className="relative aspect-video rounded-xl overflow-hidden border border-border">
-          <Image
-            src={article.imageUrl}
-            alt={article.title}
-            fill
-            unoptimized={true}
-            className="object-cover"
-          />
-        </div>
-      )}
+      <div className="relative aspect-video rounded-xl overflow-hidden border border-border">
+        <Image
+          src={getArticleImage(article.imageUrl, slug, article.id)}
+          alt={article.title}
+          fill
+          sizes="(max-width: 768px) 100vw, 896px"
+          className="object-cover"
+        />
+      </div>
 
       {/* Article Body */}
       <article
@@ -221,23 +219,15 @@ export default async function ArticleDetailPage({ params }: Props) {
                 href={`/sports/${related.sportSlug}/${related.id}`}
                 className="group flex gap-4 p-4 rounded-xl bg-bg-card border border-border hover:border-accent/30 transition-all duration-200"
               >
-                {related.imageUrl ? (
-                  <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
-                    <Image
-                      src={related.imageUrl}
-                      alt={related.title}
-                      fill
-                      unoptimized={true}
-                      className="object-cover"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-20 h-20 rounded-lg bg-bg-elevated flex items-center justify-center flex-shrink-0">
-                    <span className="text-2xl opacity-40">
-                      {related.sportIcon}
-                    </span>
-                  </div>
-                )}
+                <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                  <Image
+                    src={getArticleImage(related.imageUrl, related.sportSlug, related.id)}
+                    alt={related.title}
+                    fill
+                    sizes="80px"
+                    className="object-cover"
+                  />
+                </div>
                 <div className="flex-1 min-w-0">
                   <h3 className="text-sm font-semibold text-text-primary line-clamp-2 group-hover:text-accent transition-colors">
                     {related.title}

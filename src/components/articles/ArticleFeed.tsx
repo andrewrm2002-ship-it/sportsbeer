@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
-// TODO: Once remotePatterns are configured in next.config.ts, remove unoptimized={true} from all Image components.
 import Image from 'next/image';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { ArticleCard } from './ArticleCard';
 import { ArticleSkeleton } from './ArticleSkeleton';
 import { PopularArticles } from './PopularArticles';
 import { timeAgo } from '@/lib/utils';
+import { getArticleImage } from '@/lib/sport-images';
 
 const PAGE_SIZE = 12;
 
@@ -158,8 +158,8 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
 
   if (loading) {
     return (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-        {Array.from({ length: 6 }).map((_, i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-5">
+        {Array.from({ length: 8 }).map((_, i) => (
           <ArticleSkeleton key={i} />
         ))}
       </div>
@@ -254,7 +254,7 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
       {/* Category Filter Tabs */}
       <div
         ref={tabsRef}
-        className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1"
+        className="sticky top-16 z-30 bg-bg-primary/95 backdrop-blur-sm py-2 -mx-4 px-4 flex gap-2 overflow-x-auto pb-2 scrollbar-hide"
       >
         {CATEGORY_TABS.map((tab) => (
           <button
@@ -295,21 +295,13 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
           <div className="grid grid-cols-1 md:grid-cols-2">
             {/* Image */}
             <div className="relative h-64 md:h-80 overflow-hidden">
-              {heroArticle.imageUrl ? (
-                <Image
-                  src={heroArticle.imageUrl}
-                  alt={heroArticle.title}
-                  fill
-                  unoptimized={true}
-                  className="object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-bg-elevated via-bg-card to-accent/10 flex items-center justify-center">
-                  <span className="text-7xl opacity-30 group-hover:opacity-50 transition-opacity">
-                    {heroArticle.sportIcon}
-                  </span>
-                </div>
-              )}
+              <Image
+                src={getArticleImage(heroArticle.imageUrl, heroArticle.sportSlug || 'soccer', heroArticle.id)}
+                alt={heroArticle.title}
+                fill
+                sizes="(max-width: 768px) 100vw, 50vw"
+                className="object-cover group-hover:scale-105 transition-transform duration-500"
+              />
               {/* Dramatic gradient overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-bg-card/90 via-bg-card/20 to-transparent pointer-events-none" />
               {/* Featured Badge + Sport Badge */}
@@ -366,7 +358,7 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
         <div className="flex gap-8">
           {/* Main grid */}
           <div className="flex-1 min-w-0">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-5">
               {restArticles.map((article) => (
                 <ArticleCard
                   key={article.id}
@@ -395,18 +387,62 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
         </div>
       )}
 
-      {/* Load More Button */}
-      {hasMore && (
+      {/* Loading indicator for infinite scroll */}
+      {loadingMore && (
         <div className="flex justify-center pt-4">
-          <button
-            onClick={handleLoadMore}
-            disabled={loadingMore}
-            className="px-8 py-3 rounded-xl text-sm font-semibold bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 hover:border-accent/50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-          >
-            {loadingMore ? 'Pouring more...' : 'Load More Stories'}
-          </button>
+          <span className="text-sm text-text-muted animate-pulse">Pouring more...</span>
         </div>
+      )}
+
+      {/* Infinite Scroll Sentinel + Load More Fallback */}
+      {hasMore && (
+        <>
+          <LoadMoreSentinel loading={loadingMore} onIntersect={handleLoadMore} hasMore={hasMore} />
+          <noscript>
+            <div className="flex justify-center pt-4">
+              <button
+                onClick={handleLoadMore}
+                disabled={loadingMore}
+                className="px-8 py-3 rounded-xl text-sm font-semibold bg-accent/10 text-accent border border-accent/30 hover:bg-accent/20 hover:border-accent/50 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {loadingMore ? 'Pouring more...' : 'Load More Stories'}
+              </button>
+            </div>
+          </noscript>
+        </>
       )}
     </div>
   );
+}
+
+/** Sentinel element that triggers loading via IntersectionObserver */
+function LoadMoreSentinel({
+  loading,
+  onIntersect,
+  hasMore,
+}: {
+  loading: boolean;
+  onIntersect: () => void;
+  hasMore: boolean;
+}) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          onIntersect();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loading, onIntersect]);
+
+  return <div ref={sentinelRef} className="h-1" aria-hidden="true" />;
 }

@@ -16,13 +16,14 @@ export default async function HomePage() {
   const session = await auth();
 
   // Fetch user preferences server-side for logged-in users
-  let preferredSports: { id: string; name: string; icon: string }[] = [];
+  let preferredSports: { id: string; name: string; icon: string; slug: string }[] = [];
   if (session?.user?.id) {
     const prefs = await db
       .select({
         id: schema.sports.id,
         name: schema.sports.name,
         icon: schema.sports.icon,
+        slug: schema.sports.slug,
       })
       .from(schema.userSportPreferences)
       .innerJoin(schema.sports, eq(schema.userSportPreferences.sportId, schema.sports.id))
@@ -60,20 +61,20 @@ export default async function HomePage() {
           AI-powered coverage with a humorous twist — served fresh daily.
         </p>
         <div className="mt-8 flex items-center justify-center gap-4 flex-wrap">
-          <Link
-            href="/sports"
-            className="px-6 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-accent to-secondary text-bg-primary hover:shadow-lg hover:shadow-accent/25 transition-all duration-300 hover:scale-105"
-          >
-            Browse Sports
-          </Link>
           {!session && (
             <Link
               href="/register"
-              className="px-6 py-3 rounded-xl text-sm font-bold border-2 border-accent/30 text-accent hover:bg-accent/10 transition-all duration-300"
+              className="px-6 py-3 rounded-xl text-sm font-bold bg-gradient-to-r from-accent to-secondary text-bg-primary hover:shadow-lg hover:shadow-accent/25 transition-all duration-300 hover:scale-105"
             >
               Sign Up for Personalized Feeds
             </Link>
           )}
+          <Link
+            href="/sports"
+            className="px-6 py-3 rounded-xl text-sm font-bold border-2 border-accent/30 text-accent hover:bg-accent/10 transition-all duration-300"
+          >
+            Browse Sports
+          </Link>
         </div>
 
         {/* Beer foam / wave decorative element */}
@@ -102,13 +103,36 @@ export default async function HomePage() {
       {/* Stats Bar */}
       <StatsBar />
 
+      {/* Onboarding nudge for logged-out users */}
+      {!session && (
+        <Link
+          href="/register"
+          className="block p-4 rounded-xl bg-accent-muted border border-accent/20 hover:border-accent/40 transition-colors -mt-6"
+        >
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">&#x1F37A;</span>
+            <div>
+              <p className="text-sm font-semibold text-text-primary">
+                Pick Your Favorite Sports
+              </p>
+              <p className="text-xs text-text-secondary">
+                Sign up to get a personalized feed tailored to your taste.
+              </p>
+            </div>
+            <span className="ml-auto text-accent text-sm font-medium">
+              Register &rarr;
+            </span>
+          </div>
+        </Link>
+      )}
+
       {/* Main Content: Feed + Trending Sidebar */}
       <section>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold text-text-primary">
             {session
               ? hasPreferences
-                ? 'Your Tap List'
+                ? 'Box Scores & Brews'
                 : 'Latest on Tap'
               : 'Latest From All Taps'}
           </h2>
@@ -147,13 +171,14 @@ export default async function HomePage() {
         {session && hasPreferences && (
           <div className="flex items-center gap-2 flex-wrap mb-6">
             {preferredSports.map((sport) => (
-              <span
+              <Link
                 key={sport.id}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-accent/10 text-accent border border-accent/20"
+                href={`/sports/${sport.slug}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 hover:border-accent/40 transition-colors"
               >
                 <span>{sport.icon}</span>
                 {sport.name}
-              </span>
+              </Link>
             ))}
             <Link
               href="/preferences"
