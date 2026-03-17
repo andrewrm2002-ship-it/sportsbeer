@@ -215,7 +215,7 @@ export async function generateContentForSport(
       }
     }
 
-    // 2c. Only generate from sources with enough full text. ESPN remains scores-only.
+    // 2c. Only generate from sources with enough full text (800 chars min, no exceptions).
     const contentArticles = newArticles.filter((a) => isEligibleForAiGeneration(a));
 
     if (contentArticles.length === 0) {

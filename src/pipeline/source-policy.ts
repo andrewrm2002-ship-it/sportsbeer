@@ -1,7 +1,8 @@
 import type { RawArticleData } from './fetchers/types';
 
-export const MIN_FULL_CONTENT_LENGTH = 500;
-export const MIN_SCORE_CONTENT_LENGTH = 200;
+export const MIN_FULL_CONTENT_LENGTH = 800;
+// Score-only articles without rich source text produce thin, unfunny output — same gate for all
+export const MIN_SCORE_CONTENT_LENGTH = 800;
 
 function isEspnSource(article: RawArticleData): boolean {
   return article.sourceName === 'ESPN';

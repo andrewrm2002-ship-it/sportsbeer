@@ -4,69 +4,33 @@ import Parser from 'rss-parser';
 const parser = new Parser({ timeout: 10000 });
 
 async function main() {
-  // Try ESPN MLB RSS
-  try {
-    const feed = await parser.parseURL('https://www.espn.com/espn/rss/mlb/news');
-    for (const item of (feed.items ?? []).slice(0, 3)) {
-      if (!item?.link) continue;
-      console.log('=== SOURCE ===');
-      console.log('TITLE:', item.title);
-      console.log('LINK:', item.link);
-      
-      const fullText = await scrapeArticleText(item.link);
-      if (fullText && fullText.length >= 1500) {
-        console.log('CHARS:', fullText.length);
-        console.log('=== FULL TEXT ===');
-        console.log(fullText.slice(0, 4000));
-        return; // Got one good article
-      }
-    }
-  } catch(e) {
-    console.error('ESPN failed:', e);
-  }
+  const feeds = [
+    'https://www.espn.com/espn/rss/nfl/news',
+    'https://www.espn.com/espn/rss/nba/news',
+    'https://www.espn.com/espn/rss/mlb/news',
+    'https://feeds.bbci.co.uk/sport/football/rss.xml',
+    'https://www.theguardian.com/sport/rss',
+  ];
 
-  // Fallback: BBC Sport
-  try {
-    const feed = await parser.parseURL('https://feeds.bbci.co.uk/sport/rss.xml');
-    for (const item of (feed.items ?? []).slice(0, 5)) {
-      if (!item?.link) continue;
-      console.log('=== BBC SOURCE ===');
-      console.log('TITLE:', item.title);
-      console.log('LINK:', item.link);
-      
-      const fullText = await scrapeArticleText(item.link);
-      if (fullText && fullText.length >= 1500) {
-        console.log('CHARS:', fullText.length);
-        console.log('=== FULL TEXT ===');
-        console.log(fullText.slice(0, 4000));
-        return;
+  for (const feedUrl of feeds) {
+    try {
+      const feed = await parser.parseURL(feedUrl);
+      for (const item of (feed.items ?? []).slice(0, 5)) {
+        if (!item?.link) continue;
+        const fullText = await scrapeArticleText(item.link);
+        if (fullText && fullText.length >= 1500) {
+          console.log('SOURCE:', item.title);
+          console.log('SPORT:', feedUrl.includes('nfl') ? 'NFL' : feedUrl.includes('nba') ? 'NBA' : feedUrl.includes('mlb') ? 'MLB' : feedUrl.includes('football') ? 'Soccer' : 'General');
+          console.log('LINK:', item.link);
+          console.log('CHARS:', fullText.length);
+          console.log('---TEXT---');
+          console.log(fullText.slice(0, 5000));
+          console.log('---END---');
+          return;
+        }
       }
-    }
-  } catch(e) {
-    console.error('BBC failed:', e);
+    } catch { /* try next feed */ }
   }
-
-  // Fallback: Guardian
-  try {
-    const feed = await parser.parseURL('https://www.theguardian.com/sport/rss');
-    for (const item of (feed.items ?? []).slice(0, 5)) {
-      if (!item?.link) continue;
-      console.log('=== GUARDIAN SOURCE ===');
-      console.log('TITLE:', item.title);
-      console.log('LINK:', item.link);
-      
-      const fullText = await scrapeArticleText(item.link);
-      if (fullText && fullText.length >= 1500) {
-        console.log('CHARS:', fullText.length);
-        console.log('=== FULL TEXT ===');
-        console.log(fullText.slice(0, 4000));
-        return;
-      }
-    }
-  } catch(e) {
-    console.error('Guardian failed:', e);
-  }
-  
   console.log('No articles with 1500+ chars found');
 }
 
