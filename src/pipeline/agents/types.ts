@@ -20,7 +20,7 @@ export interface WriterVariant {
 
 // ─── Judge Types ────────────────────────────────────────────────────────────
 
-export type JudgeId = 'editor' | 'reader';
+export type JudgeId = 'editor' | 'reader' | 'fact_checker';
 
 export interface JudgeScores {
   humorQuality: number;

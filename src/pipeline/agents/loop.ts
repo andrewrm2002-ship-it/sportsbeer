@@ -10,7 +10,7 @@ import * as schema from '../../../db/schema';
 import { getArticleHash } from '../deduplicator';
 import { researchStories } from './researcher';
 import { writeAllStyles, WRITER_STYLES } from './writer';
-import { judgeWithBothJudges } from './judge';
+import { judgeWithCoreJudges, JUDGE_IDS } from './judge';
 import { optimizeInstructions } from './optimizer';
 import { fallbackRewrite } from './fallback';
 import type {
@@ -157,11 +157,11 @@ async function runRound(
   emit('writing', `${allVariants.length} variants produced.`);
 
   // ── Phase 2: Judging ──────────────────────────────────────────────────
-  emit('judging', `Judging ${allVariants.length} variants with 2 judges...`);
+  emit('judging', `Judging ${allVariants.length} variants with ${JUDGE_IDS.length} judges...`);
 
   for (const { story, variant } of allVariants) {
     try {
-      const scores = await judgeWithBothJudges(variant, story.raw);
+      const scores = await judgeWithCoreJudges(variant, story.raw);
       const avgScore =
         scores.length > 0
           ? scores.reduce((sum, s) => sum + s.result.totalScore, 0) / scores.length

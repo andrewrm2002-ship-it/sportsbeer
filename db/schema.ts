@@ -307,7 +307,7 @@ export const aiVariantScores = sqliteTable('ai_variant_scores', {
     .notNull()
     .references(() => aiArticleVariants.id, { onDelete: 'cascade' }),
   judgeId: text('judge_id', {
-    enum: ['editor', 'reader'],
+    enum: ['editor', 'reader', 'fact_checker'],
   }).notNull(),
   humorQuality: integer('humor_quality').notNull(),
   factualAccuracy: integer('factual_accuracy').notNull(),

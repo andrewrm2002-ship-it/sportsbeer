@@ -1,6 +1,6 @@
 /**
- * Judge agent — 2 independent judges score article variants.
- * Each judge has a different perspective to prevent correlated bias.
+ * Judge agent — 3 independent judges score article variants.
+ * Each judge has a different perspective to reduce correlated bias.
  */
 
 import { callClaudeJSON } from './claude-cli';
@@ -33,6 +33,17 @@ SCORING PHILOSOPHY:
 - An 8 means "good, I'd text this to someone"
 - A 9 means "great, I'm reading parts of this out loud"
 - SCORE LOW if the article is vague, repetitive, or full of empty phrases instead of facts`,
+
+  fact_checker: `You are a skeptical fact-checker reviewing a sports article against the source.
+
+SCORING PHILOSOPHY:
+- Treat unsupported context as a real defect even if it is probably true
+- Penalize invented team/position labels, added history, motive attribution, and summary language that reaches beyond the source
+- A 5 means "mostly right, but embellished or sloppy"
+- A 7 means "factually solid, minor unsupported framing"
+- A 9 means "tight, source-disciplined, no meaningful drift from the source"
+- Give low factualAccuracy if the writer adds background knowledge not explicitly supported by the source
+- If the article speculates about intent, consequences, or historical patterns without source support, call it out directly`,
 };
 
 const SCORING_RUBRIC = `
@@ -127,13 +138,13 @@ export async function judgeVariant(
 }
 
 /**
- * Run both judges on a single variant.
+ * Run the core judge panel on a single variant.
  */
-export async function judgeWithBothJudges(
+export async function judgeWithCoreJudges(
   variant: WriterVariant,
   sourceArticle: RawArticleData,
 ): Promise<{ judgeId: JudgeId; result: JudgeResult }[]> {
-  const judges: JudgeId[] = ['editor', 'reader'];
+  const judges = CORE_JUDGE_IDS;
 
   const results = await Promise.allSettled(
     judges.map((judgeId) => judgeVariant(variant, sourceArticle, judgeId)),
@@ -153,4 +164,8 @@ export async function judgeWithBothJudges(
   return scored;
 }
 
-export const JUDGE_IDS: JudgeId[] = ['editor', 'reader'];
+export const CORE_JUDGE_IDS = ['editor', 'reader', 'fact_checker'] as const satisfies JudgeId[];
+export const JUDGE_IDS: JudgeId[] = [...CORE_JUDGE_IDS];
+
+// Backward-compatible alias for older scripts.
+export const judgeWithBothJudges = judgeWithCoreJudges;

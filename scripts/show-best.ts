@@ -1,9 +1,15 @@
 import { db } from '../db';
 import { aiArticleVariants, aiVariantScores } from '../db/schema';
 import { sql, eq } from 'drizzle-orm';
+import type { WriterStyle } from '../src/pipeline/agents/types';
+
+const WRITER_STYLES: WriterStyle[] = ['punchy', 'storyteller', 'analyst'];
 
 async function main() {
-  const style = process.argv[2] || 'punchy';
+  const styleArg = process.argv[2];
+  const style: WriterStyle = styleArg && WRITER_STYLES.includes(styleArg as WriterStyle)
+    ? styleArg as WriterStyle
+    : 'punchy';
 
   const rows = await db
     .select({
