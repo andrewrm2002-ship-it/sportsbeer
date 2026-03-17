@@ -53,6 +53,38 @@ interface ArticleFeedProps {
   headerLabel?: string;
 }
 
+/** Sentinel element that triggers loading via IntersectionObserver */
+function LoadMoreSentinel({
+  loading,
+  onIntersect,
+  hasMore,
+}: {
+  loading: boolean;
+  onIntersect: () => void;
+  hasMore: boolean;
+}) {
+  const sentinelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading) {
+          onIntersect();
+        }
+      },
+      { rootMargin: '200px' }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loading, onIntersect]);
+
+  return <div ref={sentinelRef} className="h-1" aria-hidden="true" />;
+}
+
 export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -413,36 +445,4 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
       )}
     </div>
   );
-}
-
-/** Sentinel element that triggers loading via IntersectionObserver */
-function LoadMoreSentinel({
-  loading,
-  onIntersect,
-  hasMore,
-}: {
-  loading: boolean;
-  onIntersect: () => void;
-  hasMore: boolean;
-}) {
-  const sentinelRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loading) {
-          onIntersect();
-        }
-      },
-      { rootMargin: '200px' }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [hasMore, loading, onIntersect]);
-
-  return <div ref={sentinelRef} className="h-1" aria-hidden="true" />;
 }
