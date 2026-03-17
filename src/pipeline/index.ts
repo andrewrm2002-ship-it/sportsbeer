@@ -14,6 +14,10 @@ import { fetchFromLeagueSites } from './fetchers/league-sites';
 import { deduplicateArticles, getArticleHash } from './deduplicator';
 import { scrapeArticleText } from './fetchers/scraper';
 import { rewriteArticle } from './rewriter';
+import {
+  isEligibleForAiGeneration,
+  shouldAttemptArticleScrape,
+} from './source-policy';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -194,8 +198,7 @@ export async function generateContentForSport(
     }
 
     // 2b. Scrape full content for articles that lack sufficient content
-    const MIN_CONTENT = 500;
-    const needsScraping = newArticles.filter((a) => a.sourceUrl && (!a.fullContent || a.fullContent.length < MIN_CONTENT));
+    const needsScraping = newArticles.filter((a) => shouldAttemptArticleScrape(a));
     if (needsScraping.length > 0) {
       const SCRAPE_BATCH = 5;
       for (let i = 0; i < needsScraping.length; i += SCRAPE_BATCH) {
@@ -212,10 +215,8 @@ export async function generateContentForSport(
       }
     }
 
-    // 2c. Filter: only keep articles with meaningful content or structured score data
-    const contentArticles = newArticles.filter(
-      (a) => (a.fullContent && a.fullContent.length >= MIN_CONTENT) || (a.category === 'scores' && a.fullContent && a.fullContent.length >= 200),
-    );
+    // 2c. Only generate from sources with enough full text. ESPN remains scores-only.
+    const contentArticles = newArticles.filter((a) => isEligibleForAiGeneration(a));
 
     if (contentArticles.length === 0) {
       return { ...progress, status: 'complete', articleCount: 0 };

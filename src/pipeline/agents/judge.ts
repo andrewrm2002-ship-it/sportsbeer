@@ -67,9 +67,9 @@ function buildJudgePrompt(
   const venueInfo = sourceArticle.venue ? `\nVENUE: ${sourceArticle.venue}` : '';
   const playersInfo = sourceArticle.players?.length ? `\nKEY PLAYERS: ${sourceArticle.players.join(', ')}` : '';
 
-  // Give the judge the full source text so they can verify facts
+  // Give the judge the full source text so they can verify every claim.
   const fullContentSection = sourceArticle.fullContent
-    ? `\n\nFULL SOURCE TEXT (use this to verify every claim in the article):\n${sourceArticle.fullContent.slice(0, 4000)}`
+    ? `\n\nFULL SOURCE TEXT (use this to verify every claim in the article):\n${sourceArticle.fullContent}`
     : '';
 
   return `${JUDGE_PROMPTS[judgeId]}

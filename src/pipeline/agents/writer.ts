@@ -55,15 +55,8 @@ function buildWriterPrompt(
   const venueInfo = raw.venue ? `\nVENUE: ${raw.venue}` : '';
   const playersInfo = raw.players?.length ? `\nKEY PLAYERS: ${raw.players.join(', ')}` : '';
 
-  // Truncate fullContent to avoid blowing up context — keep most important parts
-  const truncatedContent = raw.fullContent
-    ? raw.fullContent.length > 6000
-      ? raw.fullContent.slice(0, 6000) + '\n[...truncated]'
-      : raw.fullContent
-    : '';
-
-  const fullContentSection = truncatedContent
-    ? `\n\nFULL SOURCE ARTICLE TEXT (this is your primary source — mine it for every detail):\n${truncatedContent}`
+  const fullContentSection = raw.fullContent
+    ? `\n\nFULL SOURCE ARTICLE TEXT (this is your primary source — mine it for every detail):\n${raw.fullContent}`
     : '';
 
   return `${WRITER_PROMPTS[style]}

@@ -13,6 +13,10 @@ import { fetchFromRss } from '../fetchers/rss';
 import { fetchFromLeagueSites } from '../fetchers/league-sites';
 import { deduplicateArticles, getArticleHash } from '../deduplicator';
 import { scrapeArticleText } from '../fetchers/scraper';
+import {
+  isEligibleForAiGeneration,
+  shouldAttemptArticleScrape,
+} from '../source-policy';
 import type { StoryData } from './types';
 
 function delay(ms: number): Promise<void> {
@@ -128,10 +132,7 @@ export async function researchStories(count: number): Promise<StoryData[]> {
   }));
 
   // Scrape full article content for stories that lack sufficient content
-  const MIN_CONTENT_LENGTH = 500;
-  const needsScraping = dedupedStories.filter(
-    (s) => s.raw.sourceUrl && (!s.raw.fullContent || s.raw.fullContent.length < MIN_CONTENT_LENGTH),
-  );
+  const needsScraping = dedupedStories.filter((s) => shouldAttemptArticleScrape(s.raw));
   if (needsScraping.length > 0) {
     console.log(`  Scraping full article text for ${needsScraping.length} stories...`);
     const SCRAPE_BATCH = 5;
@@ -154,12 +155,8 @@ export async function researchStories(count: number): Promise<StoryData[]> {
     }
   }
 
-  // Filter: only keep stories with meaningful full content (or structured score data)
-  const withContent = dedupedStories.filter(
-    (s) =>
-      (s.raw.fullContent && s.raw.fullContent.length >= MIN_CONTENT_LENGTH) ||
-      (s.raw.category === 'scores' && s.raw.fullContent && s.raw.fullContent.length >= 200),
-  );
+  // Filter to sources we trust for AI generation and require sufficient full text.
+  const withContent = dedupedStories.filter((s) => isEligibleForAiGeneration(s.raw));
 
   console.log(`  ${withContent.length}/${dedupedStories.length} stories have sufficient content`);
 
