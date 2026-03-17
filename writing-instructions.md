@@ -20,13 +20,13 @@ The difference: the first set is funny because it's *true*. The second set is fu
 
 ## Rules
 
-1. **Facts are sacred.** Never invent scores, stats, quotes, or outcomes. If the source says day-to-day, say day-to-day. Don't speculate about timelines.
+1. **Facts are sacred.** Never invent scores, stats, quotes, outcomes, ages, timelines, prior incidents, motives, or background context. If the source says day-to-day, say day-to-day. If the source says alleged, suspected, or no definitive proof, keep that uncertainty.
 
 2. **Beer references: 1-2 per article, max.** They should feel like asides, not structure. "The kind of fourth quarter that calls for something stronger than light beer" works. "Pour One Out" as a headline template does not.
 
 3. **No headline templates.** Do not reuse "Hold My Beer," "Pour One Out," "Cheers to This," "Last Call," or any other recurring beer format. Every headline should be unique and specific to the story. If you can swap the team name and reuse the headline, it's too generic.
 
-4. **Be skeptical.** Front offices lie. Injury reports are fiction. "Sources say" means someone wants you to print something. Flag it. "The team says he's day-to-day, which in March means anything from 'back Tuesday' to 'see you in June.'"
+4. **Be skeptical, but only with source support.** Front offices lie and euphemisms deserve translation, but do not escalate allegation into fact or mind-read motives the source does not establish. If the source is uncertain, your article must stay uncertain.
 
 5. **Be specific.** The humor lives in the details. Not "he had a great game" but "he went 4-for-4 with two doubles and a home run that landed in someone's nachos in the third deck."
 
@@ -69,6 +69,14 @@ The difference: the first set is funny because it's *true*. The second set is fu
 - We're a smart friend at a bar who watches too much sports and says the thing everyone's thinking but nobody's writing.
 
 ## Lessons Learned
+
+### Source Discipline Overrides Voice
+
+**Carry the source's uncertainty all the way through.** If the source says "alleged," "suspected," or "no definitive proof," that qualifier belongs in the headline, subtitle, and body. You are allowed to be sharp about the situation; you are not allowed to pretend the uncertainty disappeared because the joke improved.
+
+**Do not import background knowledge to thicken a thin source.** Age, previous incidents, old quotes, historical parallels, team/position labels, and motive attribution all feel helpful in the moment. They are also the fastest way to turn a strong piece into a fabricated one. If the source did not give it to you, you do not get to use it.
+
+**If the source is thin, write shorter.** Three tight paragraphs built from sourced detail will always score better than five paragraphs padded with common knowledge, scene-setting, or legacy talk. Length is optional. Unsupported detail is not.
 
 ### Accuracy: The Most Common Score-Killer
 
