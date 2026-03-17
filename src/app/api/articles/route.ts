@@ -7,10 +7,23 @@ import { auth } from '@/lib/auth';
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const sportId = searchParams.get('sportId');
+    let sportId = searchParams.get('sportId');
+    const sportSlug = searchParams.get('sport');
     const category = searchParams.get('category');
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
+
+    // Resolve sport slug to sportId if needed
+    if (!sportId && sportSlug) {
+      const sport = await db
+        .select({ id: schema.sports.id })
+        .from(schema.sports)
+        .where(eq(schema.sports.slug, sportSlug))
+        .get();
+      if (sport) {
+        sportId = sport.id;
+      }
+    }
 
     // If user is logged in and no sportId filter, try to use their preferences
     let preferredSportIds: string[] | null = null;
@@ -60,6 +73,7 @@ export async function GET(request: NextRequest) {
         sportName: schema.sports.name,
         sportIcon: schema.sports.icon,
         sportSlug: schema.sports.slug,
+        tags: schema.articles.tags,
       })
       .from(schema.articles)
       .innerJoin(schema.sports, eq(schema.articles.sportId, schema.sports.id))

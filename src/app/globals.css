@@ -13,7 +13,7 @@
   --color-secondary-hover: #f09650;
   --color-text-primary: #f0f0f0;
   --color-text-secondary: #a0aec0;
-  --color-text-muted: #8a95a8;
+  --color-text-muted: #94a3b8;
   --color-border: #2a3344;
   --color-border-accent: rgba(232, 168, 32, 0.3);
   --color-error: #e53e3e;
@@ -131,6 +131,20 @@ body::before {
   --color-border-accent: rgba(232, 168, 32, 0.3);
   --color-error: #e53e3e;
   --color-success: #38a169;
+}
+
+/* Touch targets for coarse pointers (mobile) */
+@media (pointer: coarse) {
+  button, a, [role="button"] { min-height: 44px; min-width: 44px; }
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 /* Prose spacing for article body */

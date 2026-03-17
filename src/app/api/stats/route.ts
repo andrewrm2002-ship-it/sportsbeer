@@ -23,7 +23,7 @@ export async function GET() {
       .limit(1);
 
     const lastUpdated = latest
-      ? (latest.publishedAt ? new Date(latest.publishedAt as unknown as number * 1000).toISOString() : new Date(latest.generatedAt as unknown as number * 1000).toISOString())
+      ? (latest.publishedAt ?? latest.generatedAt)?.toISOString() ?? null
       : null;
 
     return NextResponse.json({

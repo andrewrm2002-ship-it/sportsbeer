@@ -159,6 +159,58 @@ export const emailAlerts = sqliteTable('email_alerts', {
     .default(sql`(unixepoch())`),
 });
 
+// ─── Notifications ─────────────────────────────────────────────────────────
+
+export const notifications = sqliteTable('notifications', {
+  id: text('id')
+    .primaryKey()
+    .default(sql`(lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))))`),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  type: text('type', {
+    enum: ['new_article', 'breaking', 'system'],
+  }).notNull(),
+  title: text('title').notNull(),
+  message: text('message').notNull(),
+  articleId: text('article_id').references(() => articles.id, {
+    onDelete: 'set null',
+  }),
+  isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+// ─── Collections ────────────────────────────────────────────────────────────
+
+export const collections = sqliteTable('collections', {
+  id: text('id')
+    .primaryKey()
+    .default(sql`(lower(hex(randomblob(4))) || '-' || lower(hex(randomblob(2))) || '-4' || substr(lower(hex(randomblob(2))),2) || '-' || substr('89ab',abs(random()) % 4 + 1, 1) || substr(lower(hex(randomblob(2))),2) || '-' || lower(hex(randomblob(6))))`),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  description: text('description'),
+  createdAt: integer('created_at', { mode: 'timestamp' })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+export const bookmarkCollections = sqliteTable(
+  'bookmark_collections',
+  {
+    collectionId: text('collection_id')
+      .notNull()
+      .references(() => collections.id, { onDelete: 'cascade' }),
+    bookmarkArticleId: text('bookmark_article_id').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.collectionId, table.bookmarkArticleId] }),
+  ]
+);
+
 // ─── Shared Articles ────────────────────────────────────────────────────────
 
 export const sharedArticles = sqliteTable('shared_articles', {

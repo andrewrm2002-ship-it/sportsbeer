@@ -1,10 +1,10 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { db } from '../../../../db';
 import * as schema from '../../../../db/schema';
 import { eq } from 'drizzle-orm';
 import { ArticleFeed } from '@/components/articles/ArticleFeed';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import { SportContextBar } from '@/components/sports/SportContextBar';
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -55,6 +55,9 @@ export default async function SportDetailPage({ params }: Props) {
           { label: sport.name },
         ]}
       />
+
+      {/* Sport Context Bar */}
+      <SportContextBar currentSlug={sport.slug} />
 
       {/* Sport Header */}
       <div className="flex items-center gap-4">

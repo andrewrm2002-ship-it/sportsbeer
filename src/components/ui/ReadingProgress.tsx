@@ -1,0 +1,49 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
+
+interface ReadingProgressProps {
+  className?: string;
+}
+
+export function ReadingProgress({ className }: ReadingProgressProps) {
+  const [progress, setProgress] = useState(0);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollTop = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight - window.innerHeight;
+
+      if (docHeight <= 0) {
+        setProgress(0);
+        setVisible(false);
+        return;
+      }
+
+      setVisible(scrollTop > 100);
+      setProgress(Math.min((scrollTop / docHeight) * 100, 100));
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <div
+      className={cn('fixed top-0 left-0 right-0 z-[60] h-[3px] bg-transparent', className)}
+      role="progressbar"
+      aria-valuenow={Math.round(progress)}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
+      <div
+        className="h-full bg-accent transition-[width] duration-150 ease-out"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  );
+}

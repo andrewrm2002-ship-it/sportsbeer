@@ -2,8 +2,12 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
+// TODO: Once remotePatterns are configured in next.config.ts, remove unoptimized={true} from all Image components.
+import Image from 'next/image';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { ArticleCard } from './ArticleCard';
 import { ArticleSkeleton } from './ArticleSkeleton';
+import { PopularArticles } from './PopularArticles';
 import { timeAgo } from '@/lib/utils';
 
 const PAGE_SIZE = 12;
@@ -30,6 +34,18 @@ interface Article {
   publishedAt: number | null;
   generatedAt: number;
   category: string;
+  tags?: string[] | null;
+}
+
+interface TrendingArticle {
+  id: string;
+  title: string;
+  sportIcon: string;
+  sportSlug: string;
+  sportName: string;
+  category: string;
+  publishedAt: number | null;
+  generatedAt: number;
 }
 
 interface ArticleFeedProps {
@@ -38,13 +54,34 @@ interface ArticleFeedProps {
 }
 
 export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const activeTag = searchParams.get('tag');
+
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState('');
   const [activeCategory, setActiveCategory] = useState<CategoryKey>('all');
+  const [trendingArticles, setTrendingArticles] = useState<TrendingArticle[]>([]);
   const tabsRef = useRef<HTMLDivElement>(null);
+
+  // Fetch trending articles for the hero strip
+  useEffect(() => {
+    async function loadTrending() {
+      try {
+        const res = await fetch('/api/articles/trending');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (Array.isArray(data)) setTrendingArticles(data);
+      } catch {
+        // Non-critical, silently fail
+      }
+    }
+    loadTrending();
+  }, []);
 
   const fetchArticles = useCallback(
     async (offset: number, category?: CategoryKey) => {
@@ -91,6 +128,12 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
     setActiveCategory(category);
   }
 
+  function clearTagFilter() {
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete('tag');
+    router.push(`${pathname}?${params.toString()}`);
+  }
+
   async function handleLoadMore() {
     setLoadingMore(true);
     try {
@@ -103,6 +146,15 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
       setLoadingMore(false);
     }
   }
+
+  // Filter articles by tag if a tag query parameter is active
+  const displayedArticles = activeTag
+    ? articles.filter(
+        (a) =>
+          a.tags &&
+          a.tags.some((t) => t.toLowerCase() === activeTag.toLowerCase())
+      )
+    : articles;
 
   if (loading) {
     return (
@@ -144,7 +196,7 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
     );
   }
 
-  const [heroArticle, ...restArticles] = articles;
+  const [heroArticle, ...restArticles] = displayedArticles;
 
   return (
     <div className="space-y-8">
@@ -153,6 +205,52 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
           {headerLabel}
         </p>
       )}
+
+      {/* Trending Now Strip — horizontal scroll of compact article cards */}
+      {trendingArticles.length > 0 && (
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">
+            Trending Now
+          </h3>
+          <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide -mx-1 px-1">
+            {trendingArticles.map((article) => (
+              <Link
+                key={article.id}
+                href={`/sports/${article.sportSlug}/${article.id}`}
+                className="flex-shrink-0 w-56 group flex items-center gap-3 p-3 rounded-xl bg-bg-card border border-border hover:border-accent/30 transition-all duration-200"
+              >
+                <span className="text-xl flex-shrink-0">{article.sportIcon}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold text-text-primary line-clamp-2 group-hover:text-accent transition-colors leading-snug">
+                    {article.title}
+                  </p>
+                  <span className="text-[9px] font-semibold uppercase tracking-wider text-text-muted mt-0.5 inline-block">
+                    {article.category}
+                  </span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Active Tag Filter Indicator */}
+      {activeTag && (
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-text-muted">Filtered by tag:</span>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium bg-accent/10 text-accent border border-accent/20">
+            {activeTag}
+            <button
+              onClick={clearTagFilter}
+              className="ml-1 hover:text-text-primary transition-colors"
+              aria-label="Clear tag filter"
+            >
+              &times;
+            </button>
+          </span>
+        </div>
+      )}
+
       {/* Category Filter Tabs */}
       <div
         ref={tabsRef}
@@ -173,6 +271,21 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
         ))}
       </div>
 
+      {/* No results for tag filter */}
+      {activeTag && displayedArticles.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-text-muted">
+            No articles found with tag &quot;{activeTag}&quot;.
+          </p>
+          <button
+            onClick={clearTagFilter}
+            className="mt-3 px-4 py-2 text-sm bg-accent/10 text-accent rounded-lg hover:bg-accent/20 transition-colors"
+          >
+            Clear Filter
+          </button>
+        </div>
+      )}
+
       {/* Hero Card - Featured first article */}
       {heroArticle && (
         <Link
@@ -183,10 +296,12 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
             {/* Image */}
             <div className="relative h-64 md:h-80 overflow-hidden">
               {heroArticle.imageUrl ? (
-                <img
+                <Image
                   src={heroArticle.imageUrl}
                   alt={heroArticle.title}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  fill
+                  unoptimized={true}
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-bg-elevated via-bg-card to-accent/10 flex items-center justify-center">
@@ -246,25 +361,37 @@ export function ArticleFeed({ sportId, headerLabel }: ArticleFeedProps) {
         </Link>
       )}
 
-      {/* Remaining articles in grid */}
+      {/* Article Grid + Sidebar layout */}
       {restArticles.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {restArticles.map((article) => (
-            <ArticleCard
-              key={article.id}
-              id={article.id}
-              title={article.title}
-              subtitle={article.subtitle}
-              summary={article.summary}
-              imageUrl={article.imageUrl}
-              sportName={article.sportName}
-              sportIcon={article.sportIcon}
-              sportSlug={article.sportSlug}
-              publishedAt={article.publishedAt}
-              generatedAt={article.generatedAt}
-              category={article.category}
-            />
-          ))}
+        <div className="flex gap-8">
+          {/* Main grid */}
+          <div className="flex-1 min-w-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {restArticles.map((article) => (
+                <ArticleCard
+                  key={article.id}
+                  id={article.id}
+                  title={article.title}
+                  subtitle={article.subtitle}
+                  summary={article.summary}
+                  imageUrl={article.imageUrl}
+                  sportName={article.sportName}
+                  sportIcon={article.sportIcon}
+                  sportSlug={article.sportSlug}
+                  publishedAt={article.publishedAt}
+                  generatedAt={article.generatedAt}
+                  category={article.category}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Sidebar — Trending widget, desktop only */}
+          <aside className="hidden xl:block w-72 flex-shrink-0">
+            <div className="sticky top-24">
+              <PopularArticles />
+            </div>
+          </aside>
         </div>
       )}
 

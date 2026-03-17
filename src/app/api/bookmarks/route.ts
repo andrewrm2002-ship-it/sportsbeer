@@ -81,7 +81,17 @@ export async function POST(request: NextRequest) {
         );
       return NextResponse.json({ bookmarked: false });
     } else {
-      // Add bookmark
+      // Verify article exists before inserting
+      const article = await db
+        .select({ id: schema.articles.id })
+        .from(schema.articles)
+        .where(eq(schema.articles.id, articleId))
+        .get();
+
+      if (!article) {
+        return NextResponse.json({ error: 'Article not found' }, { status: 404 });
+      }
+
       await db.insert(schema.bookmarks).values({ userId, articleId });
       return NextResponse.json({ bookmarked: true });
     }

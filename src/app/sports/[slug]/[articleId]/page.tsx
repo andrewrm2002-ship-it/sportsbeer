@@ -1,4 +1,6 @@
 import Link from 'next/link';
+// TODO: Once remotePatterns are configured in next.config.ts, remove unoptimized={true} from all Image components.
+import Image from 'next/image';
 import { notFound } from 'next/navigation';
 import { db } from '../../../../../db';
 import * as schema from '../../../../../db/schema';
@@ -7,6 +9,8 @@ import { timeAgo } from '@/lib/utils';
 import { ShareButtons } from '@/components/articles/ShareButtons';
 import { BookmarkButton } from '@/components/articles/BookmarkButton';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
+import { ReadingProgressBar } from '@/components/articles/ReadingProgressBar';
+import { TrendingOtherSports } from '@/components/articles/TrendingOtherSports';
 
 interface Props {
   params: Promise<{ slug: string; articleId: string }>;
@@ -99,6 +103,9 @@ export default async function ArticleDetailPage({ params }: Props) {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {/* Reading Progress Bar */}
+      <ReadingProgressBar />
+
       {/* Breadcrumbs */}
       <Breadcrumbs
         items={[
@@ -162,13 +169,15 @@ export default async function ArticleDetailPage({ params }: Props) {
         </div>
       </header>
 
-      {/* Hero Image */}
+      {/* Hero Image — consistent 16:9 aspect ratio */}
       {article.imageUrl && (
-        <div className="rounded-xl overflow-hidden border border-border">
-          <img
+        <div className="relative aspect-video rounded-xl overflow-hidden border border-border">
+          <Image
             src={article.imageUrl}
             alt={article.title}
-            className="w-full h-auto max-h-[480px] object-cover"
+            fill
+            unoptimized={true}
+            className="object-cover"
           />
         </div>
       )}
@@ -183,22 +192,23 @@ export default async function ArticleDetailPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: article.body }}
       />
 
-      {/* Tags */}
+      {/* Clickable Tags — each links to the sport page filtered by tag */}
       {article.tags && article.tags.length > 0 && (
         <div className="flex items-center gap-2 flex-wrap pt-4 border-t border-border">
           <span className="text-xs font-medium text-text-muted">Tags:</span>
           {article.tags.map((tag) => (
-            <span
+            <Link
               key={tag}
-              className="px-2.5 py-1 rounded-full text-xs font-medium bg-bg-elevated text-text-secondary border border-border"
+              href={`/sports/${slug}?tag=${encodeURIComponent(tag)}`}
+              className="px-2.5 py-1 rounded-full text-xs font-medium bg-bg-elevated text-text-secondary border border-border hover:bg-accent/10 hover:text-accent hover:border-accent/20 transition-colors"
             >
               {tag}
-            </span>
+            </Link>
           ))}
         </div>
       )}
 
-      {/* Related Articles */}
+      {/* Related Articles — same sport */}
       {relatedArticles.length > 0 && (
         <section className="pt-8 border-t border-border space-y-4">
           <h2 className="text-xl font-bold text-text-primary">
@@ -212,11 +222,15 @@ export default async function ArticleDetailPage({ params }: Props) {
                 className="group flex gap-4 p-4 rounded-xl bg-bg-card border border-border hover:border-accent/30 transition-all duration-200"
               >
                 {related.imageUrl ? (
-                  <img
-                    src={related.imageUrl}
-                    alt={related.title}
-                    className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
-                  />
+                  <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
+                    <Image
+                      src={related.imageUrl}
+                      alt={related.title}
+                      fill
+                      unoptimized={true}
+                      className="object-cover"
+                    />
+                  </div>
                 ) : (
                   <div className="w-20 h-20 rounded-lg bg-bg-elevated flex items-center justify-center flex-shrink-0">
                     <span className="text-2xl opacity-40">
@@ -242,6 +256,9 @@ export default async function ArticleDetailPage({ params }: Props) {
           </div>
         </section>
       )}
+
+      {/* Cross-Sport Trending Articles */}
+      <TrendingOtherSports excludeSportSlug={slug} />
     </div>
   );
 }
