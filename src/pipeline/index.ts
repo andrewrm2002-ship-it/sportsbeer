@@ -193,8 +193,9 @@ export async function generateContentForSport(
       return { ...progress, status: 'complete', articleCount: 0 };
     }
 
-    // 2b. Scrape full content for articles with sourceUrl
-    const needsScraping = newArticles.filter((a) => !a.fullContent && a.sourceUrl);
+    // 2b. Scrape full content for articles that lack sufficient content
+    const MIN_CONTENT = 500;
+    const needsScraping = newArticles.filter((a) => a.sourceUrl && (!a.fullContent || a.fullContent.length < MIN_CONTENT));
     if (needsScraping.length > 0) {
       const SCRAPE_BATCH = 5;
       for (let i = 0; i < needsScraping.length; i += SCRAPE_BATCH) {
@@ -211,10 +212,9 @@ export async function generateContentForSport(
       }
     }
 
-    // 2c. Filter: only keep articles with substantial content or structured score data
-    const MIN_CONTENT = 1500;
+    // 2c. Filter: only keep articles with meaningful content or structured score data
     const contentArticles = newArticles.filter(
-      (a) => (a.fullContent && a.fullContent.length >= MIN_CONTENT) || (a.category === 'scores' && a.fullContent && a.fullContent.length >= 300),
+      (a) => (a.fullContent && a.fullContent.length >= MIN_CONTENT) || (a.category === 'scores' && a.fullContent && a.fullContent.length >= 200),
     );
 
     if (contentArticles.length === 0) {

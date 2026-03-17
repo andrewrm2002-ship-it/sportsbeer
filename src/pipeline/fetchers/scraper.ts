@@ -6,7 +6,25 @@
 const SCRAPE_TIMEOUT_MS = 8000;
 const MAX_CONTENT_LENGTH = 15000; // Cap content — enough for rich source material
 
+// Domains that render content via JavaScript (React/Next.js SPAs) — static fetch won't work
+const JS_RENDERED_DOMAINS = [
+  'espn.com',
+  'premierleague.com',
+  'atptour.com',
+  'formula1.com',
+];
+
+function isJsRenderedSite(url: string): boolean {
+  try {
+    const hostname = new URL(url).hostname;
+    return JS_RENDERED_DOMAINS.some((d) => hostname.endsWith(d));
+  } catch {
+    return false;
+  }
+}
+
 async function fetchHtml(url: string): Promise<string | undefined> {
+  if (isJsRenderedSite(url)) return undefined;
   try {
     const response = await fetch(url, {
       headers: {
@@ -102,6 +120,12 @@ function extractArticleText(html: string): string | undefined {
     bodyHtml = articleMatch[1]!;
   }
 
+  // Strategy 1b: Extract from <main> tag
+  if (!bodyHtml) {
+    const mainMatch = html.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+    if (mainMatch) bodyHtml = mainMatch[1]!;
+  }
+
   // Strategy 2: Common article body selectors via regex
   if (!bodyHtml) {
     const bodyPatterns = [
@@ -109,7 +133,10 @@ function extractArticleText(html: string): string | undefined {
       /<div[^>]*class="[^"]*story-body[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
       /<div[^>]*class="[^"]*article__body[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
       /<div[^>]*class="[^"]*article-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*class="[^"]*post-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
+      /<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>([\s\S]*?)<\/div>/i,
       /<div[^>]*data-testid="article-body"[^>]*>([\s\S]*?)<\/div>/i,
+      /<section[^>]*class="[^"]*article[^"]*"[^>]*>([\s\S]*?)<\/section>/i,
     ];
     for (const pattern of bodyPatterns) {
       const match = html.match(pattern);

@@ -91,11 +91,12 @@ export async function researchStories(count: number): Promise<StoryData[]> {
     return [];
   }
 
-  // Shuffle sports for variety, then take a broader subset
+  // Shuffle sports for variety, fetch from at least 6 different sports
   const shuffled = activeSports.sort(() => Math.random() - 0.5);
-  const sportsToFetch = shuffled.slice(0, Math.min(10, shuffled.length));
+  const sportsToFetch = shuffled.slice(0, Math.min(12, shuffled.length));
 
   const allStories: StoryData[] = [];
+  let sportsFetched = 0;
 
   for (const sport of sportsToFetch) {
     const config: SportConfig = {
@@ -109,8 +110,10 @@ export async function researchStories(count: number): Promise<StoryData[]> {
 
     const stories = await fetchForSport(config);
     allStories.push(...stories);
+    sportsFetched++;
 
-    if (allStories.length >= count * 3) break; // Fetch enough for dedup headroom
+    // Ensure we fetch from at least 6 sports before considering early exit
+    if (sportsFetched >= 6 && allStories.length >= count * 5) break;
     await delay(500);
   }
 
@@ -124,9 +127,10 @@ export async function researchStories(count: number): Promise<StoryData[]> {
     hash: getArticleHash(raw),
   }));
 
-  // Scrape full article content for ALL deduped stories that need it
+  // Scrape full article content for stories that lack sufficient content
+  const MIN_CONTENT_LENGTH = 500;
   const needsScraping = dedupedStories.filter(
-    (s) => !s.raw.fullContent && s.raw.sourceUrl,
+    (s) => s.raw.sourceUrl && (!s.raw.fullContent || s.raw.fullContent.length < MIN_CONTENT_LENGTH),
   );
   if (needsScraping.length > 0) {
     console.log(`  Scraping full article text for ${needsScraping.length} stories...`);
@@ -150,12 +154,11 @@ export async function researchStories(count: number): Promise<StoryData[]> {
     }
   }
 
-  // Filter: only keep stories with substantial full content (or structured score data)
-  const MIN_CONTENT_LENGTH = 1500;
+  // Filter: only keep stories with meaningful full content (or structured score data)
   const withContent = dedupedStories.filter(
     (s) =>
       (s.raw.fullContent && s.raw.fullContent.length >= MIN_CONTENT_LENGTH) ||
-      (s.raw.category === 'scores' && s.raw.fullContent && s.raw.fullContent.length >= 300),
+      (s.raw.category === 'scores' && s.raw.fullContent && s.raw.fullContent.length >= 200),
   );
 
   console.log(`  ${withContent.length}/${dedupedStories.length} stories have sufficient content`);

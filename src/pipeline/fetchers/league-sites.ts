@@ -28,7 +28,6 @@ const LEAGUE_SITES: Record<string, LeagueSite[]> = {
     { url: 'https://www.nhl.com/news', sourceName: 'NHL.com', linkPattern: /nhl\.com\/news\// },
   ],
   soccer: [
-    { url: 'https://www.premierleague.com/news', sourceName: 'Premier League', linkPattern: /premierleague\.com\/news\// },
     { url: 'https://www.mlssoccer.com/news/', sourceName: 'MLS', linkPattern: /mlssoccer\.com\/news\// },
   ],
   golf: [
@@ -38,11 +37,7 @@ const LEAGUE_SITES: Record<string, LeagueSite[]> = {
     { url: 'https://www.ufc.com/news', sourceName: 'UFC.com', linkPattern: /ufc\.com\/news\// },
   ],
   tennis: [
-    { url: 'https://www.atptour.com/en/news', sourceName: 'ATP Tour', linkPattern: /atptour\.com\/en\/news\// },
     { url: 'https://www.wtatennis.com/news', sourceName: 'WTA', linkPattern: /wtatennis\.com\/news\// },
-  ],
-  f1: [
-    { url: 'https://www.formula1.com/en/latest/all', sourceName: 'Formula1.com', linkPattern: /formula1\.com\/en\/latest\// },
   ],
   cricket: [
     { url: 'https://www.icc-cricket.com/news', sourceName: 'ICC', linkPattern: /icc-cricket\.com\/news\// },

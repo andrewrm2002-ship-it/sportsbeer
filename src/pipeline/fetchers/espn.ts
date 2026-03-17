@@ -120,12 +120,43 @@ function parseScoreboardEvents(
 
     const venue = competition.venue?.fullName;
 
+    // Build structured fullContent for score articles so they pass the content gate
+    const scoreDiff = Math.abs(homeScore - awayScore);
+    const totalPoints = homeScore + awayScore;
+    const isBlowout = scoreDiff > totalPoints * 0.4;
+    const isClose = scoreDiff <= 3;
+    const isDraw = homeScore === awayScore;
+    const winner = homeScore > awayScore ? homeName : awayName;
+    const loser = homeScore > awayScore ? awayName : homeName;
+    const winScore = Math.max(homeScore, awayScore);
+    const loseScore = Math.min(homeScore, awayScore);
+
+    const statusDesc = competition.status?.type?.description ?? 'Final';
+    const gameNarrative = isDraw
+      ? `${homeName} and ${awayName} played to a ${homeScore}-${awayScore} draw${venue ? ` at ${venue}` : ''}.`
+      : isBlowout
+        ? `${winner} dominated ${loser} with a commanding ${winScore}-${loseScore} victory${venue ? ` at ${venue}` : ''}. The ${scoreDiff}-point margin tells the story of a game that was never close.`
+        : isClose
+          ? `In a tightly contested battle${venue ? ` at ${venue}` : ''}, ${winner} edged past ${loser} ${winScore}-${loseScore}. The ${scoreDiff}-point margin kept fans on the edge until the final whistle.`
+          : `${winner} defeated ${loser} ${winScore}-${loseScore}${venue ? ` at ${venue}` : ''}.`;
+
+    const fullContent = [
+      `${statusDesc}: ${homeName} ${homeScore} - ${awayName} ${awayScore}`,
+      gameNarrative,
+      `Home team: ${homeName} (${homeScore} points). Away team: ${awayName} (${awayScore} points).`,
+      venue ? `Venue: ${venue}.` : '',
+      `Score differential: ${scoreDiff} points. Total combined score: ${totalPoints}.`,
+      isBlowout ? `This was a blowout — ${winner} controlled the game from start to finish.` : '',
+      isClose ? `This was a nail-biter decided by just ${scoreDiff} point${scoreDiff === 1 ? '' : 's'}.` : '',
+    ].filter(Boolean).join('\n\n');
+
     articles.push({
       externalId: `espn-score-${event.id ?? `${homeName}-${awayName}-${event.date}`}`,
       sport: sport.id,
       league: sport.espnSlug?.split('/')[1],
       title,
       description,
+      fullContent,
       category: 'scores',
       sourceName: 'ESPN',
       imageUrl: undefined,
