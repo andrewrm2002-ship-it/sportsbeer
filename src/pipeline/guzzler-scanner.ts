@@ -75,13 +75,45 @@ interface ParsedEvent {
   allBookOdds: { book: string; outcomes: { name: string; odds: number }[] }[];
 }
 
+/**
+ * Separate books into 2-way (moneyline) and 3-way (regulation h2h with draw) groups.
+ * Only compare like-for-like to avoid fake arbs from mixing market types.
+ * Returns the larger group so we maximize book coverage.
+ */
+function partitionBooks(event: OddsApiEvent): OddsApiEvent['bookmakers'] {
+  const twoWay: OddsApiEvent['bookmakers'] = [];
+  const threeWay: OddsApiEvent['bookmakers'] = [];
+
+  for (const book of event.bookmakers) {
+    const h2h = book.markets.find((m) => m.key === 'h2h');
+    if (!h2h) continue;
+    const hasDraw = h2h.outcomes.some((o) => o.name === 'Draw');
+    if (hasDraw) {
+      threeWay.push(book);
+    } else {
+      twoWay.push(book);
+    }
+  }
+
+  // Use whichever group has more books for better coverage
+  if (threeWay.length >= twoWay.length && threeWay.length >= 2) {
+    return threeWay;
+  }
+  return twoWay;
+}
+
 function parseEvent(event: OddsApiEvent, mapping: OddsLeagueMapping): ParsedEvent | null {
-  if (event.bookmakers.length < 2) return null;
+  // Skip events that have already started — live odds are not actionable for arb
+  const commence = new Date(event.commence_time);
+  if (commence.getTime() < Date.now()) return null;
+
+  const books = partitionBooks(event);
+  if (books.length < 2) return null;
 
   const outcomeNames = new Set<string>();
   const oddsByOutcome = new Map<string, { odds: number; book: string }[]>();
 
-  for (const book of event.bookmakers) {
+  for (const book of books) {
     const h2h = book.markets.find((m) => m.key === 'h2h');
     if (!h2h) continue;
     for (const outcome of h2h.outcomes) {
@@ -104,7 +136,8 @@ function parseEvent(event: OddsApiEvent, mapping: OddsLeagueMapping): ParsedEven
     bestOdds.set(name, best);
   }
 
-  const allBookOdds = event.bookmakers
+  // Keep the comparison table aligned with the market set used for detection.
+  const allBookOdds = books
     .map((b) => {
       const h2h = b.markets.find((m) => m.key === 'h2h');
       if (!h2h) return null;

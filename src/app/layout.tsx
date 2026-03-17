@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Geist } from 'next/font/google';
 import { SessionWrapper } from '@/components/providers/SessionWrapper';
+import { BasePathFetchShim } from '@/components/providers/BasePathFetchShim';
 import { ToastProvider } from '@/components/providers/ToastProvider';
 import { Navbar } from '@/components/layout/Navbar';
 import { BreakingNewsBanner } from '@/components/layout/BreakingNewsBanner';
@@ -35,6 +36,7 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} antialiased bg-bg-primary text-text-primary min-h-screen flex flex-col`}>
         <SessionWrapper>
+          <BasePathFetchShim />
           <ToastProvider>
             <SkipToContent />
             <Navbar />
