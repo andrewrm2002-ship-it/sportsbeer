@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { withBasePath } from '@/lib/base-path';
 import { GenerationProgress } from './GenerationProgress';
 import { useToast } from '@/components/providers/ToastProvider';
 
@@ -48,7 +49,7 @@ export function GenerateButton() {
       }
 
       // Connect to SSE for progress
-      const eventSource = new EventSource(`/api/generate/progress?streamId=${streamId}`);
+      const eventSource = new EventSource(withBasePath(`/api/generate/progress?streamId=${streamId}`));
 
       eventSource.onmessage = (event) => {
         try {

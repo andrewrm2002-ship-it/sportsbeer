@@ -19,8 +19,19 @@ export interface StreamState {
 
 export const progressStore = new Map<string, StreamState>();
 
-/** Prevents concurrent generation runs. */
-export let isGenerating = false;
+/** Prevents concurrent generation runs. Auto-expires after 10 minutes. */
+let generationStartedAt: number | null = null;
+const LOCK_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
 export function setGenerating(v: boolean) {
-  isGenerating = v;
+  generationStartedAt = v ? Date.now() : null;
+}
+
+export function getIsGenerating(): boolean {
+  if (generationStartedAt === null) return false;
+  if (Date.now() - generationStartedAt > LOCK_TIMEOUT_MS) {
+    generationStartedAt = null; // auto-expire
+    return false;
+  }
+  return true;
 }

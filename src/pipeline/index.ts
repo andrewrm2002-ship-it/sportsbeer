@@ -14,10 +14,23 @@ import { fetchFromLeagueSites } from './fetchers/league-sites';
 import { deduplicateArticles, getArticleHash } from './deduplicator';
 import { scrapeArticleText } from './fetchers/scraper';
 import { rewriteArticle } from './rewriter';
+import { writeArticle } from './agents/writer';
+import * as fs from 'fs';
+import * as path from 'path';
 import {
   isEligibleForAiGeneration,
   shouldAttemptArticleScrape,
 } from './source-policy';
+
+// Load writing instructions once at module level
+const INSTRUCTIONS_PATH = path.join(process.cwd(), 'writing-instructions.md');
+function loadWritingInstructions(): string {
+  try {
+    return fs.readFileSync(INSTRUCTIONS_PATH, 'utf-8');
+  } catch {
+    return 'Write sharp, fact-dense sports articles with beer-themed humor. Be specific, be skeptical, be funny.';
+  }
+}
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -222,24 +235,45 @@ export async function generateContentForSport(
       return { ...progress, status: 'complete', articleCount: 0 };
     }
 
-    // 3. Rewrite each article (individually wrapped so one failure doesn't kill the batch)
+    // 3. Rewrite each article via AI writer (sequentially to avoid overwhelming Claude CLI)
     onProgress?.({ ...progress, status: 'rewriting' });
-    const rewriteResults = contentArticles.map((article) => {
+    const instructions = loadWritingInstructions();
+    const successfulPairs: { raw: RawArticleData; rewritten: { title: string; subtitle: string; body: string; summary: string } }[] = [];
+
+    for (const article of contentArticles) {
       try {
-        return { ok: true as const, value: rewriteArticle(article) };
+        // Use AI writer for articles with full content
+        if (article.fullContent && article.fullContent.length >= 200) {
+          const storyData = { raw: article, hash: getArticleHash(article) };
+          const variant = await writeArticle(storyData, 'punchy', instructions);
+          successfulPairs.push({
+            raw: article,
+            rewritten: {
+              title: variant.output.title,
+              subtitle: variant.output.subtitle,
+              body: variant.output.body,
+              summary: variant.output.summary,
+            },
+          });
+        } else {
+          // Fallback to template rewriter for articles without full content
+          const rewritten = rewriteArticle(article);
+          successfulPairs.push({ raw: article, rewritten });
+        }
       } catch (error) {
         console.error(
           `Failed to rewrite article "${article.title}":`,
           error instanceof Error ? error.message : error,
         );
-        return { ok: false as const };
+        // On AI writer failure, try template rewriter as fallback
+        try {
+          const rewritten = rewriteArticle(article);
+          successfulPairs.push({ raw: article, rewritten });
+        } catch {
+          // Both failed, skip this article
+        }
       }
-    });
-
-    // Filter out failed rewrites and keep corresponding raw articles in sync
-    const successfulPairs = rewriteResults
-      .map((r, i) => (r.ok ? { raw: contentArticles[i]!, rewritten: r.value } : null))
-      .filter((pair): pair is NonNullable<typeof pair> => pair !== null);
+    }
 
     const filteredRaw = successfulPairs.map((p) => p.raw);
     const rewrittenArticles = successfulPairs.map((p) => p.rewritten);

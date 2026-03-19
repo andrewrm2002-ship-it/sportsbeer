@@ -4,13 +4,18 @@ import * as schema from '../../../../db/schema';
 import { eq } from 'drizzle-orm';
 import { generateContent } from '@/pipeline';
 import type { GenerationProgress } from '@/pipeline';
-import { progressStore, isGenerating, setGenerating } from './progress-store';
+import { progressStore, getIsGenerating, setGenerating } from './progress-store';
 import { auth } from '@/lib/auth';
+
+export async function DELETE() {
+  setGenerating(false);
+  return NextResponse.json({ ok: true, message: 'Generation lock cleared.' });
+}
 
 export async function POST() {
   try {
     // Generation lock — prevent concurrent runs
-    if (isGenerating) {
+    if (getIsGenerating()) {
       return NextResponse.json(
         { error: 'A generation is already in progress. Please wait for it to finish.' },
         { status: 409 }
@@ -161,6 +166,7 @@ export async function POST() {
 
     return NextResponse.json({ streamId });
   } catch (error) {
+    setGenerating(false); // always release lock on unexpected errors
     console.error('Failed to start generation:', error);
     return NextResponse.json(
       { error: 'Failed to start content generation' },
